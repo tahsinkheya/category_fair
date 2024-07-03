@@ -167,6 +167,8 @@ class MF(Recommender, ANNMixin):
         -------
         self : object
         """
+        print("heyaa")
+
         Recommender.fit(self, train_set, val_set)
 
         self._init()
