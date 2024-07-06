@@ -37,6 +37,7 @@ class MF(nn.Module):
         global_mean,
         dropout,
         user_gender=None,
+        item_cat=None,
     ):
         super(MF, self).__init__()
 
@@ -48,20 +49,29 @@ class MF(nn.Module):
         self.i_factors = nn.Embedding(*i_factors.shape)
         self.u_factors.weight.data = torch.from_numpy(u_factors)
         self.i_factors.weight.data = torch.from_numpy(i_factors)
-
         self.user_gender = user_gender
+        self.item_cat = item_cat
+        if self.item_cat is not None:
+            self.i_cat = nn.Embedding(self.item_cat.shape[0], self.item_cat.shape[1])
+            self.i_cat.weight.data = torch.from_numpy(self.item_cat).float()
 
-        self.gender_embedding_size = 1
-        self.u_genders = nn.Embedding(
-            self.user_gender.shape[0], self.gender_embedding_size
-        )
-        self.u_genders.weight.data = (
-            torch.from_numpy(user_gender).float().view(-1, 1)
-        )  # reshape to ensure embedding dimension matches
+        if self.user_gender is not None:
+            self.gender_embedding_size = 1
+            self.u_genders = nn.Embedding(
+                self.user_gender.shape[0], self.gender_embedding_size
+            )
+            self.u_genders.weight.data = (
+                torch.from_numpy(self.user_gender).float().view(-1, 1)
+            )  # reshape to ensure embedding dimension matches
+        assert not torch.isnan(self.u_genders.weight.data).any()
 
         self.u_linear = nn.Linear(
             u_factors.shape[1] + self.gender_embedding_size,
             u_factors.shape[1],
+        )
+        self.i_linear = nn.Linear(
+            i_factors.shape[1] + self.item_cat.shape[1],
+            i_factors.shape[1],
         )
 
         if use_bias:
@@ -73,15 +83,36 @@ class MF(nn.Module):
     def forward(self, uids, iids):
         ues = self.u_factors(uids)
         ies = self.i_factors(iids)
+        cat_ies = self.i_cat(iids)
+        assert not torch.isnan(uids).any()
         ges = self.u_genders(uids)
-        ues = torch.cat((ues, ges), dim=-1)
-        ues = self.u_linear(ues)
+        assert not torch.isnan(ges).any()
+
+        if self.user_gender is not None:
+            ues = torch.cat((ues, ges), dim=-1)
+            ues = self.u_linear(ues)
+        if self.item_cat is not None:
+            ies = torch.cat((ies, cat_ies), dim=-1)
+            ies = self.i_linear(ies)
+
+        if torch.isnan(ues).any():
+            print(find_nan_indices(ues))
+            raise ValueError("NaNs found in embeddings before USER concatenation")
+
+        if torch.isnan(ies).any():
+            raise ValueError("NaNs found in embeddings ITEM before concatenation")
 
         preds = (self.dropout(ues) * self.dropout(ies)).sum(dim=1, keepdim=True)
         if self.use_bias:
             preds += self.u_biases(uids) + self.i_biases(iids) + self.global_mean
 
         return preds.squeeze()
+
+
+def find_nan_indices(tensor):
+    nan_mask = torch.isnan(tensor)
+    nan_indices = torch.nonzero(nan_mask, as_tuple=False)
+    return nan_indices
 
 
 def learn(

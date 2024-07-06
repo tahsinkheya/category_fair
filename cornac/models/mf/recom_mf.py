@@ -105,6 +105,7 @@ class MF(Recommender, ANNMixin):
         init_params=None,
         seed=None,
         user_features=None,
+        item_features=None,
     ):
         super().__init__(name=name, trainable=trainable, verbose=verbose)
         self.k = k
@@ -119,6 +120,7 @@ class MF(Recommender, ANNMixin):
         self.early_stop = early_stop
         self.seed = seed
         self.user_features = user_features
+        self.item_features = item_features
 
         if seed is not None:
             self.num_threads = 1
@@ -235,6 +237,7 @@ class MF(Recommender, ANNMixin):
             self.global_mean,
             self.dropout,
             user_gender=self.user_features,
+            item_cat=self.item_features,
         )
 
         learn(
