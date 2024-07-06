@@ -104,6 +104,7 @@ class MF(Recommender, ANNMixin):
         verbose=False,
         init_params=None,
         seed=None,
+        user_features=None,
     ):
         super().__init__(name=name, trainable=trainable, verbose=verbose)
         self.k = k
@@ -117,6 +118,7 @@ class MF(Recommender, ANNMixin):
         self.use_bias = use_bias
         self.early_stop = early_stop
         self.seed = seed
+        self.user_features = user_features
 
         if seed is not None:
             self.num_threads = 1
@@ -167,7 +169,6 @@ class MF(Recommender, ANNMixin):
         -------
         self : object
         """
-        print("heyaa")
 
         Recommender.fit(self, train_set, val_set)
 
@@ -233,6 +234,7 @@ class MF(Recommender, ANNMixin):
             self.use_bias,
             self.global_mean,
             self.dropout,
+            user_gender=self.user_features,
         )
 
         learn(

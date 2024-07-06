@@ -36,6 +36,7 @@ class MF(nn.Module):
         use_bias,
         global_mean,
         dropout,
+        user_gender=None,
     ):
         super(MF, self).__init__()
 
@@ -47,6 +48,22 @@ class MF(nn.Module):
         self.i_factors = nn.Embedding(*i_factors.shape)
         self.u_factors.weight.data = torch.from_numpy(u_factors)
         self.i_factors.weight.data = torch.from_numpy(i_factors)
+
+        self.user_gender = user_gender
+
+        self.gender_embedding_size = 1
+        self.u_genders = nn.Embedding(
+            self.user_gender.shape[0], self.gender_embedding_size
+        )
+        self.u_genders.weight.data = (
+            torch.from_numpy(user_gender).float().view(-1, 1)
+        )  # reshape to ensure embedding dimension matches
+
+        self.u_linear = nn.Linear(
+            u_factors.shape[1] + self.gender_embedding_size,
+            u_factors.shape[1],
+        )
+
         if use_bias:
             self.u_biases = nn.Embedding(*u_biases.shape)
             self.i_biases = nn.Embedding(*i_biases.shape)
@@ -56,6 +73,9 @@ class MF(nn.Module):
     def forward(self, uids, iids):
         ues = self.u_factors(uids)
         ies = self.i_factors(iids)
+        ges = self.u_genders(uids)
+        ues = torch.cat((ues, ges), dim=-1)
+        ues = self.u_linear(ues)
 
         preds = (self.dropout(ues) * self.dropout(ies)).sum(dim=1, keepdim=True)
         if self.use_bias:
