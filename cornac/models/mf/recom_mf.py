@@ -171,7 +171,8 @@ class MF(Recommender, ANNMixin):
         -------
         self : object
         """
-
+        gender_values = np.array(list(train_set.uid_gender_map.values()))
+        self.user_features=gender_values
         Recommender.fit(self, train_set, val_set)
 
         self._init()

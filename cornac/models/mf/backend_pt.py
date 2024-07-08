@@ -63,6 +63,7 @@ class MF(nn.Module):
             self.u_genders.weight.data = (
                 torch.from_numpy(self.user_gender).float().view(-1, 1)
             )  # reshape to ensure embedding dimension matches
+
         assert not torch.isnan(self.u_genders.weight.data).any()
 
         self.u_linear = nn.Linear(
@@ -87,6 +88,8 @@ class MF(nn.Module):
         assert not torch.isnan(uids).any()
         ges = self.u_genders(uids)
         assert not torch.isnan(ges).any()
+
+       
 
         if self.user_gender is not None:
             ues = torch.cat((ues, ges), dim=-1)
@@ -131,7 +134,6 @@ def learn(
     optimizer = OPTIMIZER_DICT[optimizer](
         params=model.parameters(), lr=learning_rate, weight_decay=reg
     )
-
     progress_bar = trange(1, n_epochs + 1, disable=not verbose)
     for _ in progress_bar:
         sum_loss = 0.0
@@ -142,6 +144,11 @@ def learn(
             u_batch = torch.from_numpy(u_batch).to(device)
             i_batch = torch.from_numpy(i_batch).to(device)
             r_batch = torch.tensor(r_batch, dtype=torch.float).to(device)
+            print("./././././././.")
+            print(r_batch)
+            print(u_batch)
+            print(i_batch)
+            print("./././././././.")
 
             preds = model(u_batch, i_batch)
             loss = criteria(preds, r_batch)

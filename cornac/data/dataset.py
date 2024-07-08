@@ -70,7 +70,7 @@ class Dataset(object):
 
     timestamps: numpy.array
         Numpy array of timestamps corresponding to feedback in `uir_tuple`.
-        This is only available when input data is in `UIRT` format.
+        This is only available when input data is in `UIRT` forma`t.
     """
 
     def __init__(
@@ -80,6 +80,7 @@ class Dataset(object):
         uid_map,
         iid_map,
         uir_tuple,
+        uid_gender_map,
         timestamps=None,
         seed=None,
     ):
@@ -89,6 +90,7 @@ class Dataset(object):
         self.iid_map = iid_map
         self.uir_tuple = uir_tuple
         self.timestamps = timestamps
+        self.uid_gender_map = uid_gender_map
         self.seed = seed
         self.rng = get_rng(seed)
 
@@ -249,7 +251,9 @@ class Dataset(object):
     def dok_matrix(self):
         """The user-item interaction matrix in DOK sparse format"""
         if self.__dok_matrix is None:
-            self.__dok_matrix = dok_matrix((self.num_users, self.num_items), dtype="float")
+            self.__dok_matrix = dok_matrix(
+                (self.num_users, self.num_items), dtype="float"
+            )
             for u, i, r in zip(*self.uir_tuple):
                 self.__dok_matrix[u, i] = r
         return self.__dok_matrix
@@ -263,6 +267,8 @@ class Dataset(object):
         global_iid_map=None,
         seed=None,
         exclude_unknowns=False,
+        global_uid_gender_map=None,
+        user_features=None,
     ):
         """Constructing Dataset from given data of specific format.
 
@@ -284,11 +290,16 @@ class Dataset(object):
         global_iid_map: :obj:`defaultdict`, optional, default: None
             The dictionary containing global mapping from original ids to mapped ids of items.
 
+        global_uid_gender_map: :obj: `defaultdict`, optional, default: None
+            The dictionary containing global mapping of user gender from original ids to mapped ids of items.
+
         seed: int, optional, default: None
             Random seed for reproducing data sampling.
 
         exclude_unknowns: bool, default: False
             Ignore unknown users and items.
+
+        user_features: numpy array that is used to store the gender of each user
 
         Returns
         -------
@@ -302,12 +313,16 @@ class Dataset(object):
             global_uid_map = OrderedDict()
         if global_iid_map is None:
             global_iid_map = OrderedDict()
+        if global_uid_gender_map is None:
+            global_uid_gender_map = OrderedDict()
 
         uid_map = OrderedDict()
         iid_map = OrderedDict()
+        gid_map = OrderedDict()
 
         u_indices = []
         i_indices = []
+        # g_indices=[]
         r_values = []
         valid_idx = []
 
@@ -315,7 +330,9 @@ class Dataset(object):
         dup_count = 0
 
         for idx, (uid, iid, rating, *_) in enumerate(data):
-            if exclude_unknowns and (uid not in global_uid_map or iid not in global_iid_map):
+            if exclude_unknowns and (
+                uid not in global_uid_map or iid not in global_iid_map
+            ):
                 continue
 
             if (uid, iid) in ui_set:
@@ -325,9 +342,12 @@ class Dataset(object):
 
             uid_map[uid] = global_uid_map.setdefault(uid, len(global_uid_map))
             iid_map[iid] = global_iid_map.setdefault(iid, len(global_iid_map))
-
+            gid_map[uid_map[uid]] = global_uid_gender_map.setdefault(
+                uid_map[uid], user_features[uid]
+            )
             u_indices.append(uid_map[uid])
             i_indices.append(iid_map[iid])
+            # g_indices.append(user_features[uid])
             r_values.append(float(rating))
             valid_idx.append(idx)
 
@@ -342,15 +362,27 @@ class Dataset(object):
             np.asarray(i_indices, dtype="int"),
             np.asarray(r_values, dtype="float"),
         )
+        uirg_tuple = (
+            np.asarray(u_indices, dtype="int"),
+            np.asarray(i_indices, dtype="int"),
+            np.asarray(r_values, dtype="float"),
+            np.asarray(r_values, dtype="float"),
+        )
 
-        timestamps = np.fromiter((int(data[i][3]) for i in valid_idx), dtype="int") if fmt == "UIRT" else None
+        timestamps = (
+            np.fromiter((int(data[i][3]) for i in valid_idx), dtype="int")
+            if fmt == "UIRT"
+            else None
+        )
 
         dataset = cls(
             num_users=len(global_uid_map),
             num_items=len(global_iid_map),
             uid_map=global_uid_map,
             iid_map=global_iid_map,
+            uid_gender_map=global_uid_gender_map,
             uir_tuple=uir_tuple,
+            # uir_tuple=uir_tuple,
             timestamps=timestamps,
             seed=seed,
         )
@@ -483,7 +515,9 @@ class Dataset(object):
                     neg_items[i] = j
                 batch_users = np.concatenate((batch_users, repeated_users))
                 batch_items = np.concatenate((batch_items, neg_items))
-                batch_ratings = np.concatenate((batch_ratings, np.zeros_like(neg_items)))
+                batch_ratings = np.concatenate(
+                    (batch_ratings, np.zeros_like(neg_items))
+                )
 
             yield batch_users, batch_items, batch_ratings
 
@@ -511,7 +545,9 @@ class Dataset(object):
         elif neg_sampling.lower() == "popularity":
             neg_population = self.uir_tuple[1]
         else:
-            raise ValueError("Unsupported negative sampling option: {}".format(neg_sampling))
+            raise ValueError(
+                "Unsupported negative sampling option: {}".format(neg_sampling)
+            )
 
         for batch_ids in self.idx_iter(len(self.uir_tuple[0]), batch_size, shuffle):
             batch_users = self.uir_tuple[0][batch_ids]
@@ -730,7 +766,9 @@ class BasketDataset(Dataset):
         if self.__chrono_user_basket_data is None:
             assert self.timestamps is not None  # we need timestamps
 
-            basket_timestamps = [self.timestamps[ids[0]] for ids in self.baskets.values()]  # one-off
+            basket_timestamps = [
+                self.timestamps[ids[0]] for ids in self.baskets.values()
+            ]  # one-off
 
             self.__chrono_user_basket_data = defaultdict(lambda: ([], []))
             for (bid, ids), t in zip(self.baskets.items(), basket_timestamps):
@@ -812,6 +850,7 @@ class BasketDataset(Dataset):
         valid_idx = []
         extra_data = []
         for idx, (uid, bid, iid, *_) in enumerate(data):
+
             if exclude_unknowns and (iid not in global_iid_map):
                 continue
 
@@ -833,7 +872,9 @@ class BasketDataset(Dataset):
         basket_indices = np.asarray(b_indices, dtype="int")
 
         timestamps = (
-            np.fromiter((int(data[i][3]) for i in valid_idx), dtype="int") if fmt in ["UBIT", "UBITJson"] else None
+            np.fromiter((int(data[i][3]) for i in valid_idx), dtype="int")
+            if fmt in ["UBIT", "UBITJson"]
+            else None
         )
 
         extra_data = [data[i][4] for i in valid_idx] if fmt == "UBITJson" else None
@@ -951,7 +992,8 @@ class BasketDataset(Dataset):
         _, item_indices, _ = self.uir_tuple
         for batch_users, batch_baskets in self.ub_iter(batch_size, shuffle):
             batch_basket_items = [
-                [item_indices[self.baskets[bid]] for bid in user_baskets] for user_baskets in batch_baskets
+                [item_indices[self.baskets[bid]] for bid in user_baskets]
+                for user_baskets in batch_baskets
             ]
             yield batch_users, batch_baskets, batch_basket_items
 
@@ -1090,7 +1132,9 @@ class SequentialDataset(Dataset):
         if self.__chrono_user_session_data is None:
             assert self.timestamps is not None  # we need timestamps
 
-            session_timestamps = [self.timestamps[ids[0]] for ids in self.sessions.values()]  # one-off
+            session_timestamps = [
+                self.timestamps[ids[0]] for ids in self.sessions.values()
+            ]  # one-off
 
             self.__chrono_user_session_data = defaultdict(lambda: ([], []))
             for (sid, ids), t in zip(self.sessions.items(), session_timestamps):
@@ -1173,7 +1217,9 @@ class SequentialDataset(Dataset):
         valid_idx = []
         extra_data = []
         for idx, tup in enumerate(data):
-            uid, sid, iid, *_ = tup if fmt in ["USIT", "USITJson"] else [None] + list(tup)
+            uid, sid, iid, *_ = (
+                tup if fmt in ["USIT", "USITJson"] else [None] + list(tup)
+            )
             if exclude_unknowns and (iid not in global_iid_map):
                 continue
             global_uid_map.setdefault(uid, len(global_uid_map))
@@ -1201,7 +1247,11 @@ class SequentialDataset(Dataset):
         )
 
         extra_pos = ts_pos + 1
-        extra_data = [data[i][extra_pos] for i in valid_idx] if fmt in ["SITJson", "USITJson"] else None
+        extra_data = (
+            [data[i][extra_pos] for i in valid_idx]
+            if fmt in ["SITJson", "USITJson"]
+            else None
+        )
 
         dataset = cls(
             num_users=len(global_uid_map),
@@ -1358,7 +1408,9 @@ class SequentialDataset(Dataset):
 
         """
         for batch_session_indices, batch_mapped_ids in self.s_iter(batch_size, shuffle):
-            batch_session_items = [[self.uir_tuple[1][i] for i in ids] for ids in batch_mapped_ids]
+            batch_session_items = [
+                [self.uir_tuple[1][i] for i in ids] for ids in batch_mapped_ids
+            ]
             yield batch_session_indices, batch_mapped_ids, batch_session_items
 
     def usi_iter(self, batch_size=1, shuffle=False):
@@ -1377,7 +1429,15 @@ class SequentialDataset(Dataset):
 
         """
         for user_indices in self.user_iter(batch_size, shuffle):
-            batch_sids = [[sid for sid in self.user_session_data[uid]] for uid in user_indices]
-            batch_mapped_ids = [[self.sessions[sid] for sid in self.user_session_data[uid]] for uid in user_indices]
-            batch_session_items = [[[self.uir_tuple[1][i] for i in ids] for ids in u_batch_mapped_ids] for u_batch_mapped_ids in batch_mapped_ids]
+            batch_sids = [
+                [sid for sid in self.user_session_data[uid]] for uid in user_indices
+            ]
+            batch_mapped_ids = [
+                [self.sessions[sid] for sid in self.user_session_data[uid]]
+                for uid in user_indices
+            ]
+            batch_session_items = [
+                [[self.uir_tuple[1][i] for i in ids] for ids in u_batch_mapped_ids]
+                for u_batch_mapped_ids in batch_mapped_ids
+            ]
             yield user_indices, batch_sids, batch_mapped_ids, batch_session_items
