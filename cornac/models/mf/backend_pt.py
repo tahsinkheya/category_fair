@@ -51,6 +51,7 @@ class MF(nn.Module):
         self.i_factors.weight.data = torch.from_numpy(i_factors)
         self.user_gender = user_gender
         self.item_cat = item_cat
+
         if self.item_cat is not None:
             self.i_cat = nn.Embedding(self.item_cat.shape[0], self.item_cat.shape[1])
             self.i_cat.weight.data = torch.from_numpy(self.item_cat).float()
@@ -89,21 +90,12 @@ class MF(nn.Module):
         ges = self.u_genders(uids)
         assert not torch.isnan(ges).any()
 
-       
-
         if self.user_gender is not None:
             ues = torch.cat((ues, ges), dim=-1)
             ues = self.u_linear(ues)
         if self.item_cat is not None:
             ies = torch.cat((ies, cat_ies), dim=-1)
             ies = self.i_linear(ies)
-
-        if torch.isnan(ues).any():
-            print(find_nan_indices(ues))
-            raise ValueError("NaNs found in embeddings before USER concatenation")
-
-        if torch.isnan(ies).any():
-            raise ValueError("NaNs found in embeddings ITEM before concatenation")
 
         preds = (self.dropout(ues) * self.dropout(ies)).sum(dim=1, keepdim=True)
         if self.use_bias:
@@ -134,6 +126,7 @@ def learn(
     optimizer = OPTIMIZER_DICT[optimizer](
         params=model.parameters(), lr=learning_rate, weight_decay=reg
     )
+
     progress_bar = trange(1, n_epochs + 1, disable=not verbose)
     for _ in progress_bar:
         sum_loss = 0.0
@@ -144,11 +137,6 @@ def learn(
             u_batch = torch.from_numpy(u_batch).to(device)
             i_batch = torch.from_numpy(i_batch).to(device)
             r_batch = torch.tensor(r_batch, dtype=torch.float).to(device)
-            print("./././././././.")
-            print(r_batch)
-            print(u_batch)
-            print(i_batch)
-            print("./././././././.")
 
             preds = model(u_batch, i_batch)
             loss = criteria(preds, r_batch)

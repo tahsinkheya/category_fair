@@ -81,6 +81,7 @@ class Dataset(object):
         iid_map,
         uir_tuple,
         uid_gender_map,
+        iid_cat_map,
         timestamps=None,
         seed=None,
     ):
@@ -89,6 +90,7 @@ class Dataset(object):
         self.uid_map = uid_map
         self.iid_map = iid_map
         self.uir_tuple = uir_tuple
+        self.iid_cat_map = iid_cat_map
         self.timestamps = timestamps
         self.uid_gender_map = uid_gender_map
         self.seed = seed
@@ -268,6 +270,8 @@ class Dataset(object):
         seed=None,
         exclude_unknowns=False,
         global_uid_gender_map=None,
+        global_iid_cat_map=None,
+        item_features=None,
         user_features=None,
     ):
         """Constructing Dataset from given data of specific format.
@@ -315,10 +319,13 @@ class Dataset(object):
             global_iid_map = OrderedDict()
         if global_uid_gender_map is None:
             global_uid_gender_map = OrderedDict()
+        if global_iid_cat_map is None:
+            global_iid_cat_map = OrderedDict()
 
         uid_map = OrderedDict()
         iid_map = OrderedDict()
         gid_map = OrderedDict()
+        cid_map = OrderedDict()  # stores item categories
 
         u_indices = []
         i_indices = []
@@ -328,11 +335,18 @@ class Dataset(object):
 
         ui_set = set()  # avoid duplicate observations
         dup_count = 0
-
+        print("::::::::")
+        print(global_uid_map)
+        print(global_iid_map)
+        print("::::::::")
         for idx, (uid, iid, rating, *_) in enumerate(data):
             if exclude_unknowns and (
                 uid not in global_uid_map or iid not in global_iid_map
             ):
+                print(":::n::::n:::")
+                print(uid)
+                print(iid)
+                print("hereeeeeee")
                 continue
 
             if (uid, iid) in ui_set:
@@ -344,6 +358,9 @@ class Dataset(object):
             iid_map[iid] = global_iid_map.setdefault(iid, len(global_iid_map))
             gid_map[uid_map[uid]] = global_uid_gender_map.setdefault(
                 uid_map[uid], user_features[uid]
+            )
+            cid_map[iid_map[iid]] = global_iid_cat_map.setdefault(
+                iid_map[iid], item_features[iid]
             )
             u_indices.append(uid_map[uid])
             i_indices.append(iid_map[iid])
@@ -381,6 +398,7 @@ class Dataset(object):
             uid_map=global_uid_map,
             iid_map=global_iid_map,
             uid_gender_map=global_uid_gender_map,
+            iid_cat_map=global_iid_cat_map,
             uir_tuple=uir_tuple,
             # uir_tuple=uir_tuple,
             timestamps=timestamps,

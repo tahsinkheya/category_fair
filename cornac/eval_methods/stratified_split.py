@@ -72,6 +72,7 @@ class StratifiedSplit(BaseMethod):
         exclude_unknowns=True,
         verbose=False,
         user_features=None,
+        item_features=None,
         **kwargs
     ):
         super().__init__(
@@ -101,6 +102,7 @@ class StratifiedSplit(BaseMethod):
         self.val_size = val_size
         self.test_size = test_size
         self.user_features = user_features
+        self.item_features = item_features
 
         self._split()
 
@@ -143,10 +145,12 @@ class StratifiedSplit(BaseMethod):
         train_data = safe_indexing(data, train_idx)
         test_data = safe_indexing(data, test_idx)
         val_data = safe_indexing(data, val_idx) if len(val_idx) > 0 else None
+        
 
         self.build(
             train_data=train_data,
             test_data=test_data,
             val_data=val_data,
             user_features=self.user_features,
+            item_features=self.item_features,
         )

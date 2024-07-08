@@ -278,6 +278,7 @@ class BaseMethod:
         self.global_uid_map = kwargs.get("global_uid_map", OrderedDict())
         self.global_iid_map = kwargs.get("global_iid_map", OrderedDict())
         self.global_uid_gender_map = kwargs.get("global_uid_gender_map", OrderedDict())
+        self.global_iid_cat_map = kwargs.get("global_iid_cat_map", OrderedDict())
 
         self.user_feature = kwargs.get("user_feature", None)
         self.user_text = kwargs.get("user_text", None)
@@ -488,7 +489,15 @@ class BaseMethod:
         ranking_metrics = sorted(ranking_metrics, key=lambda mt: mt.name)
         return rating_metrics, ranking_metrics
 
-    def _build_datasets(self, train_data, test_data, val_data=None,user_features=None):
+    def _build_datasets(
+        self,
+        train_data,
+        test_data,
+        val_data=None,
+        user_features=None,
+        item_features=None,
+    ):
+
         self.train_set = Dataset.build(
             data=train_data,
             fmt=self.fmt,
@@ -497,9 +506,11 @@ class BaseMethod:
             global_iid_map=self.global_iid_map,
             global_uid_gender_map=self.global_uid_gender_map,
             seed=self.seed,
+            item_features=item_features,
+            global_iid_cat_map=self.global_iid_cat_map,
             exclude_unknowns=False,
         )
-       
+
         if self.verbose:
             print("---")
             print("Training data:")
@@ -517,6 +528,8 @@ class BaseMethod:
             global_uid_gender_map=self.global_uid_gender_map,
             global_uid_map=self.global_uid_map,
             global_iid_map=self.global_iid_map,
+            item_features=item_features,
+            global_iid_cat_map=self.global_iid_cat_map,
             seed=self.seed,
             exclude_unknowns=self.exclude_unknowns,
         )
@@ -545,6 +558,9 @@ class BaseMethod:
                 global_uid_map=self.global_uid_map,
                 global_iid_map=self.global_iid_map,
                 seed=self.seed,
+                global_iid_cat_map=self.global_iid_cat_map,
+                item_features=item_features,
+                user_features=user_features,
                 exclude_unknowns=self.exclude_unknowns,
             )
             if self.verbose:
@@ -644,7 +660,14 @@ class BaseMethod:
                 review_text=self.review_text,
             )
 
-    def build(self, train_data, test_data, val_data=None, user_features=None):
+    def build(
+        self,
+        train_data,
+        test_data,
+        val_data=None,
+        user_features=None,
+        item_features=None,
+    ):
         if train_data is None or len(train_data) == 0:
             raise ValueError("train_data is required but None or empty!")
         if test_data is None or len(test_data) == 0:
@@ -653,9 +676,11 @@ class BaseMethod:
         self.global_uid_map.clear()
         self.global_iid_map.clear()
         self.global_uid_gender_map.clear()
-        
+        self.global_iid_cat_map.clear()
 
-        self._build_datasets(train_data, test_data, val_data, user_features)
+        self._build_datasets(
+            train_data, test_data, val_data, user_features, item_features
+        )
         self._build_modalities()
 
         return self
