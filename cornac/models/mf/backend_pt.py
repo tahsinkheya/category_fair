@@ -140,6 +140,11 @@ def learn(
 
             preds = model(u_batch, i_batch)
             loss = criteria(preds, r_batch)
+            # print("::::::::::::")
+            # print(preds)
+            # print(preds.shape)
+            # print(loss)
+            # print("::::::::::::")
 
             optimizer.zero_grad()
             loss.backward()
