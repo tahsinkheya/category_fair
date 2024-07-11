@@ -16,6 +16,7 @@
 import torch
 import torch.nn as nn
 from tqdm.auto import trange
+import numpy as np
 
 
 OPTIMIZER_DICT = {
@@ -64,6 +65,7 @@ class MF(nn.Module):
             self.u_genders.weight.data = (
                 torch.from_numpy(self.user_gender).float().view(-1, 1)
             )  # reshape to ensure embedding dimension matches
+            self.u_genders.weight.requires_grad = False
 
         assert not torch.isnan(self.u_genders.weight.data).any()
 
@@ -110,6 +112,16 @@ def find_nan_indices(tensor):
     return nan_indices
 
 
+def find_gender_loss(preds, genders, uids):
+    ubatch_genders = genders[uids.numpy()]
+    female = np.where(ubatch_genders == 1)[0]
+    male = np.where(ubatch_genders == 0)[0]
+    avg_f_pred = np.mean(preds.detach().numpy()[female])
+    avg_m_pred = np.mean(preds.detach().numpy()[male])
+
+    return 10 * (avg_f_pred - avg_m_pred) ** 2
+
+
 def learn(
     model,
     train_set,
@@ -120,9 +132,10 @@ def learn(
     verbose=True,
     optimizer="sgd",
     device=torch.device("cpu"),
+    alpha=0,
 ):
     model = model.to(device)
-    criteria = nn.MSELoss(reduction="sum")
+    criteria = nn.MSELoss(reduction="mean")
     optimizer = OPTIMIZER_DICT[optimizer](
         params=model.parameters(), lr=learning_rate, weight_decay=reg
     )
@@ -134,17 +147,20 @@ def learn(
         for batch_id, (u_batch, i_batch, r_batch) in enumerate(
             train_set.uir_iter(batch_size, shuffle=True)
         ):
+
             u_batch = torch.from_numpy(u_batch).to(device)
             i_batch = torch.from_numpy(i_batch).to(device)
             r_batch = torch.tensor(r_batch, dtype=torch.float).to(device)
 
             preds = model(u_batch, i_batch)
-            loss = criteria(preds, r_batch)
-            # print("::::::::::::")
-            # print(preds)
-            # print(preds.shape)
-            # print(loss)
-            # print("::::::::::::")
+            mse_loss = criteria(preds, r_batch)
+
+            gender_loss = find_gender_loss(preds, model.user_gender, u_batch)
+            loss = alpha * gender_loss + (1 - alpha) * mse_loss
+
+            # print(
+            #     f"Batch {batch_id}, MSE Loss: {mse_loss.item()}, Gender Loss: {gender_loss}, Combined Loss: {loss.item()}"
+            # )
 
             optimizer.zero_grad()
             loss.backward()
