@@ -54,18 +54,23 @@ class MF(nn.Module):
         self.item_cat = item_cat
 
         if self.item_cat is not None:
-            self.i_cat = nn.Embedding(self.item_cat.shape[0], self.item_cat.shape[1])
-            self.i_cat.weight.data = torch.from_numpy(self.item_cat).float()
+            self.cat_embedding_size = 5
+
+            self.i_cat = nn.Embedding(
+                num_embeddings=self.item_cat.shape[1],
+                embedding_dim=self.cat_embedding_size,
+            )
+            # self.i_cat.weight.data = torch.from_numpy(self.item_cat).float()
 
         if self.user_gender is not None:
-            self.gender_embedding_size = 1
+            self.gender_embedding_size = 5
             self.u_genders = nn.Embedding(
-                self.user_gender.shape[0], self.gender_embedding_size
+                num_embeddings=2, embedding_dim=self.gender_embedding_size
             )
-            self.u_genders.weight.data = (
-                torch.from_numpy(self.user_gender).float().view(-1, 1)
-            )  # reshape to ensure embedding dimension matches
-            self.u_genders.weight.requires_grad = False
+            # self.u_genders.weight.data = (
+            #     torch.from_numpy(self.user_gender).float().view(-1, 1)
+            # )  # reshape to ensure embedding dimension matches
+            # self.u_genders.weight.requires_grad = False
 
         assert not torch.isnan(self.u_genders.weight.data).any()
 
@@ -74,7 +79,7 @@ class MF(nn.Module):
             u_factors.shape[1],
         )
         self.i_linear = nn.Linear(
-            i_factors.shape[1] + self.item_cat.shape[1],
+            i_factors.shape[1] + self.item_cat.shape[1] * self.cat_embedding_size,
             i_factors.shape[1],
         )
 
@@ -84,12 +89,17 @@ class MF(nn.Module):
             self.u_biases.weight.data = torch.from_numpy(u_biases)
             self.i_biases.weight.data = torch.from_numpy(i_biases)
 
-    def forward(self, uids, iids):
+    def forward(self, uids, iids, genders, categories):
         ues = self.u_factors(uids)
+
+        ibatch_items = categories[iids.numpy()]
         ies = self.i_factors(iids)
-        cat_ies = self.i_cat(iids)
+        cat_ies = self.i_cat(torch.tensor(ibatch_items))
+        cat_ies = cat_ies.view(cat_ies.size(0), -1)
+
         assert not torch.isnan(uids).any()
-        ges = self.u_genders(uids)
+        ubatch_genders = genders[uids.numpy()]
+        ges = self.u_genders(torch.tensor(ubatch_genders))
         assert not torch.isnan(ges).any()
 
         if self.user_gender is not None:
@@ -119,7 +129,7 @@ def find_gender_loss(preds, genders, uids):
     avg_f_pred = np.mean(preds.detach().numpy()[female])
     avg_m_pred = np.mean(preds.detach().numpy()[male])
 
-    return 10 * (avg_f_pred - avg_m_pred) ** 2
+    return (avg_f_pred - avg_m_pred) ** 2
 
 
 def learn(
@@ -152,7 +162,7 @@ def learn(
             i_batch = torch.from_numpy(i_batch).to(device)
             r_batch = torch.tensor(r_batch, dtype=torch.float).to(device)
 
-            preds = model(u_batch, i_batch)
+            preds = model(u_batch, i_batch, model.user_gender, model.item_cat)
             mse_loss = criteria(preds, r_batch)
 
             gender_loss = find_gender_loss(preds, model.user_gender, u_batch)
