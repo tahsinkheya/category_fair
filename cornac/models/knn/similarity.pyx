@@ -48,11 +48,14 @@ cdef extern from "similarity.h" namespace "cornac_knn" nogil:
 
 
 @cython.boundscheck(False)
-def compute_similarity(data_mat, unsigned int k=20, unsigned int num_threads=0, verbose=True):
+def compute_similarity(data_mat, user_gender,unsigned int k=20, unsigned int num_threads=0, verbose=True):
     """ Compute similarity matrix (n_rows x n_rows) of a given data matrix.
     """
     row_mat = data_mat.tocsr()
     col_mat = data_mat.T.tocsr()
+    print(":::::::")
+    print(f"row: {row_mat}, col_mat: {col_mat}")
+    print(":::::::")
 
     cdef int n_rows = row_mat.shape[0]
     cdef int r, c, i, j
@@ -91,6 +94,10 @@ def compute_similarity(data_mat, unsigned int k=20, unsigned int num_threads=0, 
                 if sim_mat[r, i] != 0:
                     denom = sqrt(denom1[i]) * sqrt(denom2[i])
                     sim_mat[r, i] /= denom
+                with gil:  # Ensure GIL is held for printing
+                    print(":::::::")
+                    print(f"r: {r}, i: {i}, sim_mat[r, i]: {sim_mat[r, i]}")
+                    print(":::::::")
 
             free(denom1)
             free(denom2)

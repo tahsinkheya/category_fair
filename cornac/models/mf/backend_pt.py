@@ -129,7 +129,7 @@ def find_gender_loss(preds, genders, uids):
     avg_f_pred = np.mean(preds.detach().numpy()[female])
     avg_m_pred = np.mean(preds.detach().numpy()[male])
 
-    return (avg_f_pred - avg_m_pred) ** 2
+    return abs(avg_f_pred - avg_m_pred)
 
 
 def learn(

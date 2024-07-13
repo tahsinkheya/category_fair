@@ -138,6 +138,9 @@ class UserKNN(Recommender):
         trainable=True,
         verbose=True,
         seed=None,
+        user_features=None,
+        item_features=None,
+        alpha=0,
     ):
         super().__init__(name=name, trainable=trainable, verbose=verbose)
         self.k = k
@@ -147,6 +150,7 @@ class UserKNN(Recommender):
         self.amplify = amplify
         self.seed = seed
         self.rng = get_rng(seed)
+        self.gender = user_features
 
         if self.similarity not in SIMILARITIES:
             raise ValueError(
@@ -181,6 +185,10 @@ class UserKNN(Recommender):
         self : object
         """
         Recommender.fit(self, train_set, val_set)
+        gender_values = np.array(list(train_set.uid_gender_map.values()))
+        item_cats = np.array(list(train_set.iid_cat_map.values()))
+        self.user_features = gender_values
+        self.item_features = item_cats
 
         self.ui_mat = train_set.matrix.copy()
         self.mean_arr = np.zeros(self.ui_mat.shape[0])
@@ -191,6 +199,11 @@ class UserKNN(Recommender):
             weight_mat = self.ui_mat.copy()
         else:
             weight_mat = train_set.matrix.copy()
+
+        print("'''''")
+        print(weight_mat)
+        print(type(weight_mat))
+        print("'''''")
 
         # re-weighting
         if self.weighting == "idf":
@@ -203,7 +216,11 @@ class UserKNN(Recommender):
         del self.ui_mat
 
         self.sim_mat = compute_similarity(
-            weight_mat, k=self.k, num_threads=self.num_threads, verbose=self.verbose
+            weight_mat,
+            user_gender=self.user_features,
+            k=self.k,
+            num_threads=self.num_threads,
+            verbose=self.verbose,
         )
         self.sim_mat = _amplify(self.sim_mat, self.amplify)
 
@@ -314,6 +331,9 @@ class ItemKNN(Recommender):
         trainable=True,
         verbose=True,
         seed=None,
+        user_features=None,
+        item_features=None,
+        alpha=0,
     ):
         super().__init__(name=name, trainable=trainable, verbose=verbose)
         self.k = k
@@ -323,6 +343,8 @@ class ItemKNN(Recommender):
         self.amplify = amplify
         self.seed = seed
         self.rng = get_rng(seed)
+        self.user_features = user_features
+        self.item_features = item_features
 
         if self.similarity not in SIMILARITIES:
             raise ValueError(
