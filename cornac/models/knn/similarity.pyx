@@ -53,13 +53,11 @@ def compute_similarity(data_mat, user_gender,unsigned int k=20, unsigned int num
     """
     row_mat = data_mat.tocsr()
     col_mat = data_mat.T.tocsr()
-    print(":::::::")
-    print(f"row: {row_mat}, col_mat: {col_mat}")
-    print(":::::::")
+    
 
     cdef int n_rows = row_mat.shape[0]
     cdef int r, c, i, j
-    cdef double w, denom
+    cdef double w, denom,gen_term
 
     cdef int[:] row_indptr = row_mat.indptr, row_indices = row_mat.indices
     cdef double[:] row_data = row_mat.data
@@ -85,19 +83,29 @@ def compute_similarity(data_mat, user_gender,unsigned int k=20, unsigned int num
             for i in range(row_indptr[r], row_indptr[r + 1]):
                 c, w = row_indices[i], row_data[i]
                 for j in range(col_indptr[c], col_indptr[c + 1]):  # neighbors
-                    sim_mat[r, col_indices[j]] += col_data[j] * w
+                    
+                    with gil:
+                        if user_gender[r]==user_gender[col_indices[j]]: # same user_gender
+                            gen_term = 1
+                        else:
+                            gen_term = 0.8
+
+                    sim_mat[r, col_indices[j]] += col_data[j] * w * gen_term
                     if w != 0 and col_data[j] != 0:
-                        denom1[col_indices[j]] += w * w
-                        denom2[col_indices[j]] += col_data[j] * col_data[j]
+                        denom1[col_indices[j]] += w * w 
+                        denom2[col_indices[j]] += col_data[j] * col_data[j] 
+                       
+                    
 
             for i in range(n_rows):
                 if sim_mat[r, i] != 0:
                     denom = sqrt(denom1[i]) * sqrt(denom2[i])
                     sim_mat[r, i] /= denom
                 with gil:  # Ensure GIL is held for printing
-                    print(":::::::")
-                    print(f"r: {r}, i: {i}, sim_mat[r, i]: {sim_mat[r, i]}")
-                    print(":::::::")
+                        print(":::::::")
+                        print(f"r: {r}, i: {i}, sim[i]: {sim_mat[r,i]}")
+                        print(":::::::")
+                
 
             free(denom1)
             free(denom2)

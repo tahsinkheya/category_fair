@@ -200,16 +200,17 @@ class UserKNN(Recommender):
         else:
             weight_mat = train_set.matrix.copy()
 
-        print("'''''")
-        print(weight_mat)
-        print(type(weight_mat))
-        print("'''''")
-
         # re-weighting
         if self.weighting == "idf":
             weight_mat.data *= np.sqrt(_idf_weight(train_set.matrix))
         elif self.weighting == "bm25":
             weight_mat.data *= np.sqrt(_bm25_weight(train_set.matrix))
+
+        print("'''''")
+        print(weight_mat)
+        print(weight_mat.data)
+        print(type(weight_mat))
+        print("'''''")
 
         # only need item-user matrix for prediction
         self.iu_mat = self.ui_mat.T.tocsr()
