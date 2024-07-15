@@ -48,7 +48,7 @@ cdef extern from "similarity.h" namespace "cornac_knn" nogil:
 
 
 @cython.boundscheck(False)
-def compute_similarity(data_mat, user_gender,unsigned int k=20, unsigned int num_threads=0, verbose=True):
+def compute_similarity(data_mat, user_gender, item_cat, type, unsigned int k=20, unsigned int num_threads=0, verbose=True):
     """ Compute similarity matrix (n_rows x n_rows) of a given data matrix.
     """
     row_mat = data_mat.tocsr()
@@ -56,8 +56,10 @@ def compute_similarity(data_mat, user_gender,unsigned int k=20, unsigned int num
     
 
     cdef int n_rows = row_mat.shape[0]
+    
+
     cdef int r, c, i, j
-    cdef double w, denom,gen_term
+    cdef double w, denom, sim_term
 
     cdef int[:] row_indptr = row_mat.indptr, row_indices = row_mat.indices
     cdef double[:] row_data = row_mat.data
@@ -84,13 +86,20 @@ def compute_similarity(data_mat, user_gender,unsigned int k=20, unsigned int num
                 c, w = row_indices[i], row_data[i]
                 for j in range(col_indptr[c], col_indptr[c + 1]):  # neighbors
                     
-                    with gil:
-                        if user_gender[r]==user_gender[col_indices[j]]: # same user_gender
-                            gen_term = 1
+                    with gil: 
+                        if type=="user":
+                            if user_gender[r]==user_gender[col_indices[j]]: # same user_gender
+                                sim_term = 1
+                            else:
+                                sim_term = 0.8
                         else:
-                            gen_term = 0.8
+                            if np.any(item_cat[r] & item_cat[col_indices[j]]):#if any 2 movie has even 1 similar genre 
+                                sim_term = 1
+                            else:
+                                sim_term = 0.8
 
-                    sim_mat[r, col_indices[j]] += col_data[j] * w * gen_term
+
+                    sim_mat[r, col_indices[j]] += col_data[j] * w * sim_term
                     if w != 0 and col_data[j] != 0:
                         denom1[col_indices[j]] += w * w 
                         denom2[col_indices[j]] += col_data[j] * col_data[j] 
@@ -101,10 +110,8 @@ def compute_similarity(data_mat, user_gender,unsigned int k=20, unsigned int num
                 if sim_mat[r, i] != 0:
                     denom = sqrt(denom1[i]) * sqrt(denom2[i])
                     sim_mat[r, i] /= denom
-                with gil:  # Ensure GIL is held for printing
-                        print(":::::::")
-                        print(f"r: {r}, i: {i}, sim[i]: {sim_mat[r,i]}")
-                        print(":::::::")
+                
+                
                 
 
             free(denom1)
