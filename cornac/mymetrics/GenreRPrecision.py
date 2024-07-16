@@ -6,7 +6,7 @@ import math
 
 class GenreRPrecision(RatingMetric):
     def __init__(self, gender_df, unique_genres, **kwargs):
-        """
+        """ 
         initializating genders of the users
         Parameters
         ----------

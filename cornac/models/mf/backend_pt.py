@@ -93,6 +93,10 @@ class MF(nn.Module):
         ues = self.u_factors(uids)
 
         ibatch_items = categories[iids.numpy()]
+        print("::::")
+        print(iids[1])
+        print(categories[iids.numpy()[1]])
+        print("::::")
         ies = self.i_factors(iids)
         cat_ies = self.i_cat(torch.tensor(ibatch_items))
         cat_ies = cat_ies.view(cat_ies.size(0), -1)
@@ -124,6 +128,10 @@ def find_nan_indices(tensor):
 
 def find_gender_loss(preds, genders, uids):
     ubatch_genders = genders[uids.numpy()]
+    print("::::")
+    print(uids)
+    print(ubatch_genders)
+    print("::::")
     female = np.where(ubatch_genders == 1)[0]
     male = np.where(ubatch_genders == 0)[0]
     avg_f_pred = np.mean(preds.detach().numpy()[female])
