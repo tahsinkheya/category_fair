@@ -2,8 +2,8 @@ import numpy as np
 from cornac.metrics import RatingMetric
 import pandas as pd
 
-class GenrePrecision(RatingMetric):
 
+class GenreNDCG(RatingMetric):
     def __init__(self, gender_df, unique_genres, **kwargs):
         """
         initializating genders of the users
@@ -22,12 +22,16 @@ class GenrePrecision(RatingMetric):
         item_df : pd df containing all items with ids and genre info as ohe
         returns the abs diff for each gender genre distribution
         """
-        # precision of action = action movies / k
+
+        rank_val = np.arange(2, 52)
+        logVal = np.log2(rank_val)
+
         df_reco = pd.DataFrame(
             {
                 "userID": np.repeat(np.arange(reco_matrix.shape[0]), 50),
                 "itemID": reco_matrix.flatten(),
                 "rank": np.tile(np.arange(1, 50 + 1), reco_matrix.shape[0]),
+                "logVal": np.tile(logVal, reco_matrix.shape[0]),
             }
         )
         merged_df = pd.merge(df_reco, item_df, on="itemID", how="inner")
@@ -35,13 +39,14 @@ class GenrePrecision(RatingMetric):
             merged_df[self.unique_genres].sum(axis=1), axis=0
         )
 
+        merged_df[self.unique_genres] = merged_df.apply(
+            lambda r: r[self.unique_genres] / r["logVal"], axis=1
+        )
         reco_distribution = merged_df[["userID"] + self.unique_genres]
-        
-        
+
         reco_distribution = reco_distribution.groupby("userID")[
             self.unique_genres
-        ].mean()  # this is essentially the precision if we consider genre instead of relevance
-
+        ].mean()
 
         g_reco_distribution = self.get_gender_genre_dist(reco_distribution)
 
@@ -60,5 +65,6 @@ class GenrePrecision(RatingMetric):
         """
         gender_genre_dist : the genre distibution for each genre grouped by gender
         """
+        print(gender_genre_dist)
         gender_genre_dist = gender_genre_dist.to_numpy()
         return abs(gender_genre_dist[0] - gender_genre_dist[1])

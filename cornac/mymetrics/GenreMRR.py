@@ -2,8 +2,8 @@ import numpy as np
 from cornac.metrics import RatingMetric
 import pandas as pd
 
-class GenrePrecision(RatingMetric):
 
+class GenreMRR(RatingMetric):
     def __init__(self, gender_df, unique_genres, **kwargs):
         """
         initializating genders of the users
@@ -12,7 +12,7 @@ class GenrePrecision(RatingMetric):
         gender_mapping : dict
             A dictionary mapping user IDs to their genders.
         """
-        super().__init__(name="GenrePrecision", **kwargs)
+        super().__init__(name="GenreMRR", **kwargs)
         self.gender_df = gender_df
         self.unique_genres = unique_genres
 
@@ -22,7 +22,7 @@ class GenrePrecision(RatingMetric):
         item_df : pd df containing all items with ids and genre info as ohe
         returns the abs diff for each gender genre distribution
         """
-        # precision of action = action movies / k
+
         df_reco = pd.DataFrame(
             {
                 "userID": np.repeat(np.arange(reco_matrix.shape[0]), 50),
@@ -30,18 +30,18 @@ class GenrePrecision(RatingMetric):
                 "rank": np.tile(np.arange(1, 50 + 1), reco_matrix.shape[0]),
             }
         )
+
         merged_df = pd.merge(df_reco, item_df, on="itemID", how="inner")
         merged_df[self.unique_genres] = merged_df[self.unique_genres].div(
             merged_df[self.unique_genres].sum(axis=1), axis=0
         )
 
-        reco_distribution = merged_df[["userID"] + self.unique_genres]
-        
-        
-        reco_distribution = reco_distribution.groupby("userID")[
-            self.unique_genres
-        ].mean()  # this is essentially the precision if we consider genre instead of relevance
+        # reco_distribution = merged_df[["userID"] + self.unique_genres]
+        merged_df[self.unique_genres] = merged_df.apply(
+            lambda r: r[self.unique_genres] / r["rank"], axis=1
+        )
 
+        reco_distribution = merged_df.groupby("userID")[self.unique_genres].mean()
 
         g_reco_distribution = self.get_gender_genre_dist(reco_distribution)
 
@@ -60,5 +60,6 @@ class GenrePrecision(RatingMetric):
         """
         gender_genre_dist : the genre distibution for each genre grouped by gender
         """
+        print(gender_genre_dist)
         gender_genre_dist = gender_genre_dist.to_numpy()
         return abs(gender_genre_dist[0] - gender_genre_dist[1])
