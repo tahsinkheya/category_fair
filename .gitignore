@@ -67,3 +67,8 @@ env
 venv
 .env
 .venv
+
+
+
+reco_matrix_all_items.npy
+reco_matrix_all_scores.npy

@@ -2,7 +2,6 @@ import numpy as np
 from cornac.metrics import RatingMetric
 import pandas as pd
 
-
 class GenrePrecision(RatingMetric):
 
     def __init__(self, gender_df, unique_genres, **kwargs):
@@ -37,9 +36,12 @@ class GenrePrecision(RatingMetric):
         )
 
         reco_distribution = merged_df[["userID"] + self.unique_genres]
+        
+        
         reco_distribution = reco_distribution.groupby("userID")[
             self.unique_genres
         ].mean()  # this is essentially the precision if we consider genre instead of relevance
+
 
         g_reco_distribution = self.get_gender_genre_dist(reco_distribution)
 

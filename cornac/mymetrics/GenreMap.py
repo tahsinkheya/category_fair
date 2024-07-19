@@ -38,12 +38,16 @@ class GenreMap(RatingMetric):
         cumalitive=merged_df.groupby("userID")[self.unique_genres].cumsum()
         for g in self.unique_genres:
             merged_df[f'{g}_precision@k'] = cumalitive[g]/ merged_df["rank"]
+        
        
         new_df = pd.DataFrame()
         for g in self.unique_genres:
             new_df[g] = merged_df[f"{g}_precision@k"] * merged_df[g]
         new_df["userID"] = merged_df["userID"]
-       
+     
+        new_df =  new_df.groupby("userID")[
+            self.unique_genres
+        ].mean()
             
         g_reco_distribution = self.get_gender_genre_dist(new_df)
 

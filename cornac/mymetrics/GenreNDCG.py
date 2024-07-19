@@ -34,15 +34,16 @@ class GenreNDCG(RatingMetric):
                 "logVal": np.tile(logVal, reco_matrix.shape[0]),
             }
         )
-
         merged_df = pd.merge(df_reco, item_df, on="itemID", how="inner")
         merged_df[self.unique_genres] = merged_df[self.unique_genres].div(
             merged_df[self.unique_genres].sum(axis=1), axis=0
         )
+
         merged_df[self.unique_genres] = merged_df.apply(
             lambda r: r[self.unique_genres] / r["logVal"], axis=1
         )
         reco_distribution = merged_df[["userID"] + self.unique_genres]
+
         reco_distribution = reco_distribution.groupby("userID")[
             self.unique_genres
         ].mean()
@@ -50,7 +51,6 @@ class GenreNDCG(RatingMetric):
         g_reco_distribution = self.get_gender_genre_dist(reco_distribution)
 
         return self.genre_result(g_reco_distribution)
-
 
     def get_gender_genre_dist(self, user_reco):
         """
@@ -60,7 +60,6 @@ class GenreNDCG(RatingMetric):
         gender_genre_weights_r = recomen_df.groupby("Gender")[self.unique_genres].mean()
         distribution_gender = gender_genre_weights_r.sort_index()
         return distribution_gender
-
 
     def genre_result(self, gender_genre_dist):
         """

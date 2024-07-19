@@ -44,7 +44,6 @@ class GenreRecall(RatingMetric):
         reco_distribution = reco_distribution.groupby("userID")[
             self.unique_genres
         ].sum()
-        print(reco_distribution)
         # df containing all items
         all_distribution = item_df.copy(deep=True)
         all_distribution[self.unique_genres] = all_distribution[self.unique_genres].div(
