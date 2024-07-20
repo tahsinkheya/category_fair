@@ -37,12 +37,14 @@ class GenreRPrecision(RatingMetric):
         merged_df[self.unique_genres] = merged_df[self.unique_genres].div(
             merged_df[self.unique_genres].sum(axis=1), axis=0
         )
+        
         for index, row in merged_df.iterrows():
             row_genres = row["genres"].split("|")
             for genre in row_genres:
                 # print(genre in row_genres and row['rank'] > movies_df[genre])
                 if row["rank"] > math.floor(movies_genre_df[genre]):
                     merged_df.at[index, genre] = 0
+       
         reco_distribution = merged_df[["userID"] + self.unique_genres]
         reco_distribution = reco_distribution.groupby("userID")[
             self.unique_genres
