@@ -5,7 +5,7 @@ import math
 
 
 class GenreRPrecision(RatingMetric):
-    def __init__(self, gender_df, unique_genres, **kwargs):
+    def __init__(self, gender_df, unique_genres,top_k, **kwargs):
         """ 
         initializating genders of the users
         Parameters
@@ -16,10 +16,11 @@ class GenreRPrecision(RatingMetric):
         super().__init__(name="GenreRPrecision", **kwargs)
         self.gender_df = gender_df
         self.unique_genres = unique_genres
+        self.top_k = top_k
 
     def compute(self, reco_matrix, movies_genre_df, item_df):
         """
-        reco_matrix : n_userxk np array containing the ranked recommended list for users
+        reco_matrix : n_userxk np array containing the ranked recommended list for users till the nth item where n is the lower bound of the portion of the most popular genre
         item_df : pd df containing all items with ids and genre info as ohe
         movies_genre_df: pd df containing the total proportion for all genres for all movies
         returns the abs diff for each gender genre distribution

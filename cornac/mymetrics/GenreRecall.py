@@ -7,7 +7,7 @@ import pandas as pd
 
 class GenreRecall(RatingMetric):
 
-    def __init__(self, gender_df, unique_genres, **kwargs):
+    def __init__(self, gender_df, unique_genres, top_k,**kwargs):
         """
         initializating genders of the users
         Parameters
@@ -19,6 +19,7 @@ class GenreRecall(RatingMetric):
         super().__init__(name="GenreRecall", **kwargs)
         self.gender_df = gender_df
         self.unique_genres = unique_genres
+        self.top_k = top_k
         # self.df_non_interacted_items = non_interacted_items
 
     def compute(self, reco_matrix, item_df):
@@ -30,9 +31,9 @@ class GenreRecall(RatingMetric):
         # precision of action = action movies / total action movies
         df_reco = pd.DataFrame(
             {
-                "userID": np.repeat(np.arange(reco_matrix.shape[0]), 50),
+                "userID": np.repeat(np.arange(reco_matrix.shape[0]), self.top_k),
                 "itemID": reco_matrix.flatten(),
-                "rank": np.tile(np.arange(1, 50 + 1), reco_matrix.shape[0]),
+                "rank": np.tile(np.arange(1, self.top_k + 1), reco_matrix.shape[0]),
             }
         )
         merged_df = pd.merge(df_reco, item_df, on="itemID", how="inner")
