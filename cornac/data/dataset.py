@@ -124,6 +124,11 @@ class Dataset(object):
             "__dok_matrix",
         ]
 
+        # print("././././././")
+        # print(self.uir_tuple)
+        # print(self.uir_tuple[0].__len__())
+        # print("././././././")
+
     @property
     def user_ids(self):
         """Return the list of raw user ids"""

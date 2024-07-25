@@ -15,7 +15,7 @@
 
 from collections import OrderedDict
 import time
-
+import pandas as pd 
 import numpy as np
 from scipy.sparse import csr_matrix
 from tqdm.auto import tqdm
@@ -514,6 +514,11 @@ class BaseMethod:
         if self.verbose:
             print("---")
             print("Training data:")
+            print(self.train_set.uir_tuple)
+            # x=pd.DataFrame(self.train_set.uir_tuple).transpose()
+            # x.columns = ["uid",'iid','rating']
+            # x = x.astype({"uid":"int", "iid":"int","rating":"int"})
+            # x.to_csv("training_set_seed123.csv", index=False, header=False)
             print("Number of users = {}".format(self.train_set.num_users))
             print("Number of items = {}".format(self.train_set.num_items))
             print("Number of ratings = {}".format(self.train_set.num_ratings))
