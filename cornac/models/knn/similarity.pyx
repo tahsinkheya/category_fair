@@ -48,18 +48,15 @@ cdef extern from "similarity.h" namespace "cornac_knn" nogil:
 
 
 @cython.boundscheck(False)
-def compute_similarity(data_mat, user_gender, item_cat, type, unsigned int k=20, unsigned int num_threads=0, verbose=True):
+def compute_similarity(data_mat, unsigned int k=20, unsigned int num_threads=0, verbose=True):
     """ Compute similarity matrix (n_rows x n_rows) of a given data matrix.
     """
     row_mat = data_mat.tocsr()
     col_mat = data_mat.T.tocsr()
-    
 
     cdef int n_rows = row_mat.shape[0]
-    
-
     cdef int r, c, i, j
-    cdef double w, denom, sim_term
+    cdef double w, denom
 
     cdef int[:] row_indptr = row_mat.indptr, row_indices = row_mat.indices
     cdef double[:] row_data = row_mat.data
@@ -85,34 +82,15 @@ def compute_similarity(data_mat, user_gender, item_cat, type, unsigned int k=20,
             for i in range(row_indptr[r], row_indptr[r + 1]):
                 c, w = row_indices[i], row_data[i]
                 for j in range(col_indptr[c], col_indptr[c + 1]):  # neighbors
-                    
-                    with gil: 
-                        if type=="user":
-                            if user_gender[r]==user_gender[col_indices[j]]: # same user_gender
-                                sim_term = 1
-                            else:
-                                sim_term = 0.8
-                        else:
-                            if np.any(item_cat[r] & item_cat[col_indices[j]]):#if any 2 movie has even 1 similar genre 
-                                sim_term = 1
-                            else:
-                                sim_term = 0.8
-
-
-                    sim_mat[r, col_indices[j]] += col_data[j] * w * sim_term
+                    sim_mat[r, col_indices[j]] += col_data[j] * w
                     if w != 0 and col_data[j] != 0:
-                        denom1[col_indices[j]] += w * w 
-                        denom2[col_indices[j]] += col_data[j] * col_data[j] 
-                       
-                    
+                        denom1[col_indices[j]] += w * w
+                        denom2[col_indices[j]] += col_data[j] * col_data[j]
 
             for i in range(n_rows):
                 if sim_mat[r, i] != 0:
                     denom = sqrt(denom1[i]) * sqrt(denom2[i])
                     sim_mat[r, i] /= denom
-                
-                
-                
 
             free(denom1)
             free(denom2)
