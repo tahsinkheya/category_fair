@@ -199,6 +199,8 @@ class MF(Recommender, ANNMixin):
         from cornac.models.mf import backend_cpu
 
         (rid, cid, val) = train_set.uir_tuple
+       
+        
         backend_cpu.fit_sgd(
             rid,
             cid,
@@ -216,7 +218,7 @@ class MF(Recommender, ANNMixin):
             self.num_threads,
             self.use_bias,
             self.early_stop,
-            self.verbose,
+            self.verbose,self.user_features,self.item_features
         )
 
     #####################
