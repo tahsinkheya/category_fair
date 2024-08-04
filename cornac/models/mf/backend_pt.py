@@ -136,16 +136,29 @@ class GenderMseLoss(nn.MSELoss):
 
     def forward(self, preds, r_batch, g_batch):
         mse_loss = super().forward(preds, r_batch)
-        diff = torch.abs(r_batch - preds)
         f = g_batch == 1
         m = g_batch == 0
-        avg_f = diff[f].mean()
-        # avg_f = diff[f].mean(dim=0, keepdim=True)
-        avg_m = diff[m].mean()
-        # avg_m = diff[m].mean(dim=0, keepdim=True)
+        diff = torch.abs(r_batch - preds)
 
-        gender_loss = torch.abs(avg_f - avg_m)
-        # print(f"gl{gender_loss} ml{mse_loss} loss{5}")
+        # equation 1 start____________________________
+        # avg_f = diff[f].mean()
+        # avg_m = diff[m].mean()
+        # gender_loss = torch.abs(avg_f - avg_m)
+        # equation 1 end____________________________
+
+        # equation 2 start____________________________
+        female = diff[f]
+        male = diff[m]
+        total_num_preds = r_batch.shape[0]
+        female_acc_count = (female < 0.5).sum().item()
+        male_acc_count = (male < 0.5).sum().item()
+
+        gender_loss = abs(female_acc_count / total_num_preds - male_acc_count / total_num_preds)
+        # equation 2 end____________________________
+        # gender_loss = GenderLossMF(g_batch, )
         
+        
+        # print(f"gl{gender_loss} loss{self.a * gender_loss + (1 - self.a) * mse_loss} mseloss {mse_loss}")
+
         loss = self.a * gender_loss + (1 - self.a) * mse_loss
         return loss
