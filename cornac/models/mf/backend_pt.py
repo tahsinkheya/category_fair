@@ -16,7 +16,7 @@
 import torch
 import torch.nn as nn
 from tqdm.auto import trange
-
+from cornac.models.mf.GenderLossMF import GenderLossMF
 
 OPTIMIZER_DICT = {
     "sgd": torch.optim.SGD,
@@ -98,10 +98,11 @@ def learn(
             i_batch = torch.from_numpy(i_batch).to(device)
             r_batch = torch.tensor(r_batch, dtype=torch.float).to(device)
             g_batch = torch.tensor(model.user_gender[u_batch]).to(device)
+            cat_batch = torch.tensor(model.item_cat[i_batch]).to(device)
 
             preds = model(u_batch, i_batch)
             # loss = criteria(preds, r_batch)
-            loss = new_loss(preds, r_batch, g_batch)
+            loss = new_loss(preds, r_batch, g_batch, u_batch, i_batch, cat_batch)
             # print(u_batch.requires_grad, r_batch.requires_grad, g_batch.requires_grad)
 
             # print(":::::")
@@ -134,7 +135,7 @@ class GenderMseLoss(nn.MSELoss):
         super().__init__(reduction=reduction)
         self.a = a
 
-    def forward(self, preds, r_batch, g_batch):
+    def forward(self, preds, r_batch, g_batch, u_batch, i_batch, genres):
         mse_loss = super().forward(preds, r_batch)
         f = g_batch == 1
         m = g_batch == 0
@@ -143,22 +144,28 @@ class GenderMseLoss(nn.MSELoss):
         # equation 1 start____________________________
         # avg_f = diff[f].mean()
         # avg_m = diff[m].mean()
-        # gender_loss = torch.abs(avg_f - avg_m)
+        # gender_loss_1 = torch.abs(avg_f - avg_m)
         # equation 1 end____________________________
 
         # equation 2 start____________________________
-        female = diff[f]
-        male = diff[m]
-        total_num_preds = r_batch.shape[0]
-        female_acc_count = (female < 0.5).sum().item()
-        male_acc_count = (male < 0.5).sum().item()
+        # female = diff[f]
+        # male = diff[m]
+        # total_num_preds = r_batch.shape[0]
+        # female_acc_count = (female < 0.5).sum().item()
+        # male_acc_count = (male < 0.5).sum().item()
 
-        gender_loss = abs(female_acc_count / total_num_preds - male_acc_count / total_num_preds)
+        # gender_loss_2 = abs(
+        #     female_acc_count / total_num_preds - male_acc_count / total_num_preds
+        # )
         # equation 2 end____________________________
-        # gender_loss = GenderLossMF(g_batch, )
-        
-        
+
+        # equation 3 start____________________________
+        glmf = GenderLossMF(g_batch, u_batch, i_batch, diff, genres)
+        gender_loss = glmf.compute()
+        # equation 3 end____________________________
+
         # print(f"gl{gender_loss} loss{self.a * gender_loss + (1 - self.a) * mse_loss} mseloss {mse_loss}")
+        # print(f"gl{gender_loss} gl_1 {gender_loss_1} gl_2{gender_loss_2}")
 
         loss = self.a * gender_loss + (1 - self.a) * mse_loss
         return loss
