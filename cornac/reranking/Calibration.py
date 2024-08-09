@@ -146,8 +146,8 @@ class Calibration(object):
         else:
             compare_dist = gender_genre_dist.to_numpy()[0]
 
-        # gender_kl = self.get_kl_div(reco_dist[0], compare_dist, alpha, uid)
-        gender_kl = 0
+        gender_kl = self.get_kl_div(reco_dist[0], compare_dist, alpha, uid)
+        # gender_kl = 0
 
         # -----------------the fairness term----------------------------------
 

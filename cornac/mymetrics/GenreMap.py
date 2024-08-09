@@ -31,7 +31,6 @@ class GenreMap(RatingMetric):
                 "rank": np.tile(np.arange(1, self.top_k + 1), reco_matrix.shape[0]),
             }
         )
-        print(df_reco[:25])
         merged_df = pd.merge(df_reco, item_df, on="itemID", how="inner")
         merged_df[self.unique_genres] = merged_df[self.unique_genres].div(
             merged_df[self.unique_genres].sum(axis=1), axis=0
@@ -66,4 +65,4 @@ class GenreMap(RatingMetric):
         gender_genre_dist : the genre distibution for each genre grouped by gender
         """
         gender_genre_dist = gender_genre_dist.to_numpy()
-        return abs(gender_genre_dist[0] - gender_genre_dist[1])
+        return gender_genre_dist[0] - gender_genre_dist[1]

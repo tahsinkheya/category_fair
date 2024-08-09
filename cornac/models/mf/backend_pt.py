@@ -16,8 +16,7 @@
 import torch
 import torch.nn as nn
 from tqdm.auto import trange
-import numpy as np
-
+from cornac.models.mf.GenderLossMF import GenderLossMF
 
 OPTIMIZER_DICT = {
     "sgd": torch.optim.SGD,
@@ -45,92 +44,28 @@ class MF(nn.Module):
         self.use_bias = use_bias
         self.global_mean = global_mean
         self.dropout = nn.Dropout(p=dropout)
+        self.user_gender = user_gender
+        self.item_cat = item_cat
 
         self.u_factors = nn.Embedding(*u_factors.shape)
         self.i_factors = nn.Embedding(*i_factors.shape)
         self.u_factors.weight.data = torch.from_numpy(u_factors)
         self.i_factors.weight.data = torch.from_numpy(i_factors)
-        self.user_gender = user_gender
-        self.item_cat = item_cat
-
-        if self.item_cat is not None:
-            self.cat_embedding_size = 5
-
-            self.i_cat = nn.Embedding(
-                num_embeddings=self.item_cat.shape[1],
-                embedding_dim=self.cat_embedding_size,
-            )
-            # self.i_cat.weight.data = torch.from_numpy(self.item_cat).float()
-
-        if self.user_gender is not None:
-            self.gender_embedding_size = 5
-            self.u_genders = nn.Embedding(
-                num_embeddings=2, embedding_dim=self.gender_embedding_size
-            )
-            # self.u_genders.weight.data = (
-            #     torch.from_numpy(self.user_gender).float().view(-1, 1)
-            # )  # reshape to ensure embedding dimension matches
-            # self.u_genders.weight.requires_grad = False
-
-        assert not torch.isnan(self.u_genders.weight.data).any()
-
-        self.u_linear = nn.Linear(
-            u_factors.shape[1] + self.gender_embedding_size,
-            u_factors.shape[1],
-        )
-        self.i_linear = nn.Linear(
-            i_factors.shape[1] + self.item_cat.shape[1] * self.cat_embedding_size,
-            i_factors.shape[1],
-        )
-
         if use_bias:
             self.u_biases = nn.Embedding(*u_biases.shape)
             self.i_biases = nn.Embedding(*i_biases.shape)
             self.u_biases.weight.data = torch.from_numpy(u_biases)
             self.i_biases.weight.data = torch.from_numpy(i_biases)
 
-    def forward(self, uids, iids, genders, categories):
+    def forward(self, uids, iids):
         ues = self.u_factors(uids)
-
-        ibatch_items = categories[iids.numpy()]
-
         ies = self.i_factors(iids)
-        cat_ies = self.i_cat(torch.tensor(ibatch_items))
-        cat_ies = cat_ies.view(cat_ies.size(0), -1)
-
-        assert not torch.isnan(uids).any()
-        ubatch_genders = genders[uids.numpy()]
-        ges = self.u_genders(torch.tensor(ubatch_genders))
-        assert not torch.isnan(ges).any()
-
-        if self.user_gender is not None:
-            ues = torch.cat((ues, ges), dim=-1)
-            ues = self.u_linear(ues)
-        if self.item_cat is not None:
-            ies = torch.cat((ies, cat_ies), dim=-1)
-            ies = self.i_linear(ies)
 
         preds = (self.dropout(ues) * self.dropout(ies)).sum(dim=1, keepdim=True)
         if self.use_bias:
             preds += self.u_biases(uids) + self.i_biases(iids) + self.global_mean
 
         return preds.squeeze()
-
-
-def find_nan_indices(tensor):
-    nan_mask = torch.isnan(tensor)
-    nan_indices = torch.nonzero(nan_mask, as_tuple=False)
-    return nan_indices
-
-
-def find_gender_loss(preds, genders, uids):
-    ubatch_genders = genders[uids.numpy()]
-    female = np.where(ubatch_genders == 1)[0]
-    male = np.where(ubatch_genders == 0)[0]
-    avg_f_pred = np.mean(preds.detach().numpy()[female])
-    avg_m_pred = np.mean(preds.detach().numpy()[male])
-
-    return (avg_f_pred - avg_m_pred) ** 2
 
 
 def learn(
@@ -150,6 +85,7 @@ def learn(
     optimizer = OPTIMIZER_DICT[optimizer](
         params=model.parameters(), lr=learning_rate, weight_decay=reg
     )
+    new_loss = GenderMseLoss(a=alpha, reduction="sum")
 
     progress_bar = trange(1, n_epochs + 1, disable=not verbose)
     for _ in progress_bar:
@@ -158,21 +94,31 @@ def learn(
         for batch_id, (u_batch, i_batch, r_batch) in enumerate(
             train_set.uir_iter(batch_size, shuffle=True)
         ):
-
             u_batch = torch.from_numpy(u_batch).to(device)
             i_batch = torch.from_numpy(i_batch).to(device)
             r_batch = torch.tensor(r_batch, dtype=torch.float).to(device)
+            g_batch = torch.tensor(model.user_gender[u_batch]).to(device)
+            cat_batch = torch.tensor(model.item_cat[i_batch]).to(device)
 
-            preds = model(u_batch, i_batch, model.user_gender, model.item_cat)
-            mse_loss = criteria(preds, r_batch)
+            preds = model(u_batch, i_batch)
+            # loss = criteria(preds, r_batch)
+            loss = new_loss(preds, r_batch, g_batch, u_batch, i_batch, cat_batch)
+            # print(u_batch.requires_grad, r_batch.requires_grad, g_batch.requires_grad)
 
-            gender_loss = find_gender_loss(preds, model.user_gender, u_batch)
-            loss = alpha * gender_loss + (1 - alpha) * mse_loss
+            # print(":::::")
+            # loss.retain_grad()
+            # print(gender_loss.grad)
+            # print(loss.grad)
+            # print(mse_loss.grad)
+            # print(type(loss))
+            # print(type(mse_loss))
+            # print(mse_loss.requires_grad, gender_loss.requires_grad, diff.requires_grad)
 
-            # print(
-            #     f"Batch {batch_id}, MSE Loss: {mse_loss.item()}, Gender Loss: {gender_loss}, Combined Loss: {loss.item()}"
-            # )
+            # print(type(gender_loss))
+            # print(type(mse_loss))
+            # print(type(loss))
 
+            # print(":::::")
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -182,3 +128,44 @@ def learn(
 
             if batch_id % 10 == 0:
                 progress_bar.set_postfix(loss=(sum_loss / count))
+
+
+class GenderMseLoss(nn.MSELoss):
+    def __init__(self, a, reduction):
+        super().__init__(reduction=reduction)
+        self.a = a
+
+    def forward(self, preds, r_batch, g_batch, u_batch, i_batch, genres):
+        mse_loss = super().forward(preds, r_batch)
+        f = g_batch == 1
+        m = g_batch == 0
+        diff = torch.abs(r_batch - preds)
+
+        # equation 1 start____________________________
+        # avg_f = diff[f].mean()
+        # avg_m = diff[m].mean()
+        # gender_loss_1 = torch.abs(avg_f - avg_m)
+        # equation 1 end____________________________
+
+        # equation 2 start____________________________
+        # female = diff[f]
+        # male = diff[m]
+        # total_num_preds = r_batch.shape[0]
+        # female_acc_count = (female < 0.5).sum().item()
+        # male_acc_count = (male < 0.5).sum().item()
+
+        # gender_loss_2 = abs(
+        #     female_acc_count / total_num_preds - male_acc_count / total_num_preds
+        # )
+        # equation 2 end____________________________
+
+        # equation 3 start____________________________
+        glmf = GenderLossMF(g_batch, u_batch, i_batch, diff, genres)
+        gender_loss = glmf.compute()
+        # equation 3 end____________________________
+
+        # print(f"gl{gender_loss} loss{self.a * gender_loss + (1 - self.a) * mse_loss} mseloss {mse_loss}")
+        # print(f"gl{gender_loss} gl_1 {gender_loss_1} gl_2{gender_loss_2}")
+
+        loss = self.a * gender_loss + (1 - self.a) * mse_loss
+        return loss

@@ -61,6 +61,5 @@ class GenreMRR(RatingMetric):
         """
         gender_genre_dist : the genre distibution for each genre grouped by gender
         """
-        print(gender_genre_dist)
         gender_genre_dist = gender_genre_dist.to_numpy()
-        return abs(gender_genre_dist[0] - gender_genre_dist[1])
+        return gender_genre_dist[0] - gender_genre_dist[1]
