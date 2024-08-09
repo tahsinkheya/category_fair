@@ -133,6 +133,9 @@ class LightGCN(Recommender, ANNMixin):
         graph = construct_graph(train_set, self.total_users, self.total_items).to(
             device
         )
+        # print(":::::")
+        # print(graph)
+        # print(":::::")
         model = Model(
             graph,
             self.emb_size,
@@ -151,6 +154,7 @@ class LightGCN(Recommender, ANNMixin):
             leave=False,
             disable=not self.verbose,
         )
+
         for _ in pbar:
             model.train()
             accum_loss = 0.0
@@ -186,6 +190,7 @@ class LightGCN(Recommender, ANNMixin):
             u_embs, i_embs, _ = model(graph)
             # we will use numpy for faster prediction in the score function, no need torch
             self.U = u_embs.cpu().detach().numpy()
+
             self.V = i_embs.cpu().detach().numpy()
 
             if self.early_stopping is not None and self.early_stop(
