@@ -107,7 +107,7 @@ class MF(Recommender, ANNMixin):
         user_features=None,
         item_features=None,
         alpha=0,
-        
+        top_k=0,
     ):
         super().__init__(name=name, trainable=trainable, verbose=verbose)
         self.k = k
@@ -124,7 +124,7 @@ class MF(Recommender, ANNMixin):
         self.user_features = user_features
         self.item_features = item_features
         self.alpha = alpha
-    
+        self.top_k = top_k
 
         if seed is not None:
             self.num_threads = 1
@@ -199,8 +199,7 @@ class MF(Recommender, ANNMixin):
         from cornac.models.mf import backend_cpu
 
         (rid, cid, val) = train_set.uir_tuple
-       
-        
+
         backend_cpu.fit_sgd(
             rid,
             cid,
@@ -218,7 +217,9 @@ class MF(Recommender, ANNMixin):
             self.num_threads,
             self.use_bias,
             self.early_stop,
-            self.verbose,self.user_features,self.item_features
+            self.verbose,
+            self.user_features,
+            self.item_features,
         )
 
     #####################
@@ -259,8 +260,8 @@ class MF(Recommender, ANNMixin):
             optimizer=self.optimizer,
             device=device,
             alpha=self.alpha,
-           
-           
+            recommender=self,
+            top_k=self.top_k,
         )
 
         self.u_factors = model.u_factors.weight.detach().cpu().numpy()

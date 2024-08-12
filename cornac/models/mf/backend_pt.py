@@ -71,6 +71,8 @@ class MF(nn.Module):
 def learn(
     model,
     train_set,
+    recommender,
+    top_k,
     n_epochs,
     batch_size=256,
     learning_rate=0.01,
@@ -102,10 +104,21 @@ def learn(
 
             preds = model(u_batch, i_batch)
             # loss = criteria(preds, r_batch)
-            loss = new_loss(preds, r_batch, g_batch, u_batch, i_batch, cat_batch)
+            loss = new_loss(
+                preds,
+                r_batch,
+                g_batch,
+                u_batch,
+                i_batch,
+                model.item_cat,
+                recommender,
+                top_k,
+            )
+            # loss = new_loss(
+            #     preds, r_batch, g_batch, u_batch, i_batch, cat_batch, recommender, top_k
+            # )
             # print(u_batch.requires_grad, r_batch.requires_grad, g_batch.requires_grad)
 
-            # print(":::::")
             # loss.retain_grad()
             # print(gender_loss.grad)
             # print(loss.grad)
@@ -135,7 +148,9 @@ class GenderMseLoss(nn.MSELoss):
         super().__init__(reduction=reduction)
         self.a = a
 
-    def forward(self, preds, r_batch, g_batch, u_batch, i_batch, genres):
+    def forward(
+        self, preds, r_batch, g_batch, u_batch, i_batch, genres, recommender, top_k
+    ):
         mse_loss = super().forward(preds, r_batch)
         f = g_batch == 1
         m = g_batch == 0
@@ -160,7 +175,7 @@ class GenderMseLoss(nn.MSELoss):
         # equation 2 end____________________________
 
         # equation 3 start____________________________
-        glmf = GenderLossMF(g_batch, u_batch, i_batch, diff, genres)
+        glmf = GenderLossMF(g_batch, u_batch, i_batch, diff, genres, recommender, top_k)
         gender_loss = glmf.compute()
         # equation 3 end____________________________
 
