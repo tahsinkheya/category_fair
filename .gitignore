@@ -67,6 +67,7 @@ env
 venv
 .env
 .venv
+results
 
 
 

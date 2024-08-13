@@ -5,8 +5,8 @@ import math
 
 
 class GenreRPrecision(RatingMetric):
-    def __init__(self, gender_df, unique_genres,top_k, **kwargs):
-        """ 
+    def __init__(self, gender_df, unique_genres, top_k, **kwargs):
+        """
         initializating genders of the users
         Parameters
         ----------
@@ -38,14 +38,15 @@ class GenreRPrecision(RatingMetric):
         merged_df[self.unique_genres] = merged_df[self.unique_genres].div(
             merged_df[self.unique_genres].sum(axis=1), axis=0
         )
-        
+
         for index, row in merged_df.iterrows():
             row_genres = row["genres"].split("|")
             for genre in row_genres:
                 # print(genre in row_genres and row['rank'] > movies_df[genre])
-                if row["rank"] > math.floor(movies_genre_df[genre]):
-                    merged_df.at[index, genre] = 0
-       
+                if genre!="":
+                    if row["rank"] > math.floor(movies_genre_df[genre]):
+                        merged_df.at[index, genre] = 0
+
         reco_distribution = merged_df[["userID"] + self.unique_genres]
         reco_distribution = reco_distribution.groupby("userID")[
             self.unique_genres
@@ -72,5 +73,5 @@ class GenreRPrecision(RatingMetric):
         print(gender_genre_dist)
         gender_genre_dist = gender_genre_dist.to_numpy()
         print(gender_genre_dist)
-        
+
         return gender_genre_dist[0] - gender_genre_dist[1]

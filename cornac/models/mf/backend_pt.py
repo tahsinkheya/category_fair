@@ -175,12 +175,16 @@ class GenderMseLoss(nn.MSELoss):
         # equation 2 end____________________________
 
         # equation 3 start____________________________
-        glmf = GenderLossMF(g_batch, u_batch, i_batch, diff, genres, recommender, top_k)
-        gender_loss = glmf.compute()
+        if self.a!=0:
+            glmf = GenderLossMF(g_batch, u_batch, i_batch, diff, genres, recommender, top_k)
+            gender_loss = glmf.compute()
+        else:
+            gender_loss=0
         # equation 3 end____________________________
 
         # print(f"gl{gender_loss} loss{self.a * gender_loss + (1 - self.a) * mse_loss} mseloss {mse_loss}")
-        # print(f"gl{gender_loss} gl_1 {gender_loss_1} gl_2{gender_loss_2}")
 
         loss = self.a * gender_loss + (1 - self.a) * mse_loss
+        # print(f"gl{gender_loss} mse {mse_loss} total loss{loss}")
+        
         return loss

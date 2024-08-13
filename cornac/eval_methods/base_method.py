@@ -15,7 +15,7 @@
 
 from collections import OrderedDict
 import time
-import pandas as pd 
+import pandas as pd
 import numpy as np
 from scipy.sparse import csr_matrix
 from tqdm.auto import tqdm
@@ -554,6 +554,7 @@ class BaseMethod:
                     self.test_set.num_items - self.train_set.num_items
                 )
             )
+           
 
         if val_data is not None and len(val_data) > 0:
             self.val_set = Dataset.build(

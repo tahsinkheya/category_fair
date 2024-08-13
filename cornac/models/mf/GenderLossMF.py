@@ -5,16 +5,24 @@ import numpy as np
 class GenderLossMF(object):
     def __init__(self, gender, users, items, rating_diff, genres, recommender, top_k):
 
-        pd_data = []
+        # pd_data = []
         unique_users = np.unique(users.numpy())
-        print(unique_users.shape)
-        for i in range(len(unique_users)):
-            recos = recommender.rank(unique_users[i], k=top_k)[0][:top_k]
-            for j in range(top_k):
-                r = {"userID": unique_users[i], "itemID": recos[j]}
-                pd_data.append(r)
-        reco_df = pd.DataFrame(pd_data)
-        reco_df["itemID"] = reco_df["itemID"].astype(int)
+        # for i in range(len(unique_users)):
+        #     recos = recommender.rank(unique_users[i], k=top_k)[0][:top_k]
+        #     for j in range(top_k):
+        #         r = {"userID": unique_users[i], "itemID": recos[j]}
+        #         pd_data.append(r)
+        # reco_df = pd.DataFrame(pd_data)
+        # reco_df["itemID"] = reco_df["itemID"].astype(int)
+        
+        
+        
+        
+        #________
+        recommendations = [recommender.rank(u, k=top_k)[0][:top_k] for u in unique_users]
+        reco_df = pd.DataFrame({"userID":np.repeat(unique_users, top_k), "itemID":np.concatenate(recommendations)})
+        
+        #________
 
         users = pd.DataFrame(
             {
@@ -91,10 +99,10 @@ class GenderLossMF(object):
         # genre_dist_u2 = u2[self.unique_genres].sum()
         ##########################################
      
-        diff = abs(uall[0] - uall[1])
-        retVal = sum(diff)
+        diff = np.abs(uall[0] - uall[1])
+        retVal = np.sum(diff)
        
-        
+        # print(f"diff{diff} retVal{retVal} oldDiff{abs(uall[0]-uall[1])}")
         ##########################################
 
         return retVal
