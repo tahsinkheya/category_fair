@@ -17,6 +17,7 @@ import torch
 import torch.nn as nn
 from tqdm.auto import trange
 from cornac.models.mf.GenderLossMF import GenderLossMF
+from cornac.models.mf.GenderLossMF2 import GenderLossMF2
 
 OPTIMIZER_DICT = {
     "sgd": torch.optim.SGD,
@@ -113,8 +114,8 @@ def learn(
                 g_batch,
                 u_batch,
                 i_batch,
-                # model.item_cat,
-                cat_batch,
+                model.item_cat,
+                # cat_batch,
                 recommender,
                 top_k,
                 printLoss,
@@ -215,7 +216,7 @@ class GenderMseLoss(nn.MSELoss):
         # equation 3 start____________________________
         gender_loss = 0
         if self.a != 0:
-            glmf = GenderLossMF(
+            glmf = GenderLossMF2(
                 g_batch, u_batch, i_batch, diff, genres, recommender, top_k
             )
             gender_loss = glmf.compute()
