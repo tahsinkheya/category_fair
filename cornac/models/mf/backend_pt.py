@@ -76,7 +76,7 @@ def learn(
     n_epochs,
     batch_size=256,
     learning_rate=0.01,
-    reg=0.0,
+    reg=1e-5,
     verbose=True,
     optimizer="sgd",
     device=torch.device("cpu"),
@@ -113,7 +113,8 @@ def learn(
                 g_batch,
                 u_batch,
                 i_batch,
-                model.item_cat,
+                # model.item_cat,
+                cat_batch,
                 recommender,
                 top_k,
                 printLoss,
@@ -170,10 +171,10 @@ class GenderMseLoss(nn.MSELoss):
         self.a = a
         # self.max_mse_loss = -1
         # self.max_gender_loss = -1
-        self.min_mse_loss = 10000
-        self.min_gender_loss = 10000
-        self.max_mse_loss = 354.1454772949219
-        self.max_gender_loss = 0.18365486864873365
+        # self.min_mse_loss = 10000
+        # self.min_gender_loss = 10000
+        self.max_mse_loss = 404.9754333496094
+        self.max_gender_loss = 0.7370653866116046
 
     def forward(
         self,
@@ -188,6 +189,7 @@ class GenderMseLoss(nn.MSELoss):
         printLoss=False,
     ):
         mse_loss = super().forward(preds, r_batch)
+        # print(mse_loss)
         f = g_batch == 1
         m = g_batch == 0
         diff = torch.abs(r_batch - preds)
@@ -217,23 +219,33 @@ class GenderMseLoss(nn.MSELoss):
                 g_batch, u_batch, i_batch, diff, genres, recommender, top_k
             )
             gender_loss = glmf.compute()
+            # loss = self.a * (gender_loss / self.max_gender_loss) + (1 - self.a) * (
+            #     mse_loss / self.max_mse_loss
+            # )
             loss = self.a * gender_loss + mse_loss
 
         else:
             loss = mse_loss
 
+        # glmf = GenderLossMF(
+        #         g_batch, u_batch, i_batch, diff, genres, recommender, top_k
+        #     )
+        # loss = glmf.compute()
+        # loss.requires_grad = True
+
         # print(f"{type(loss)} {type(mse_loss)} { type(gender_loss)}")
+        # print(mse_loss)
 
         # equation 3 end____________________________
 
         # need these for normalization____________
-        # if gender_loss > self.max_gender_loss:
-        #     self.max_gender_loss = gender_loss
+        # if loss > self.max_gender_loss:
+        #     self.max_gender_loss = loss
         # if mse_loss > self.max_mse_loss:
         #     self.max_mse_loss = mse_loss
         # if printLoss:
-        #     print(f"mse_loss maximum {self.max_mse_loss}")
-        #     print(f"gender maximum {self.max_gender_loss}")
+        # print(f"mse_loss maximum {self.max_mse_loss}")
+        # print(f"gender maximum {self.max_gender_loss}")
         # if gender_loss < self.min_gender_loss:
         #     self.min_gender_loss = gender_loss
         # if mse_loss < self.min_mse_loss:
@@ -243,7 +255,7 @@ class GenderMseLoss(nn.MSELoss):
         #     print(f"gender min {self.min_gender_loss}")
         # need these for normalization____________
 
-        # print(f"gl{gender_loss} loss{loss} mseloss {mse_loss}")
+        # print(f"gl{gender_loss*self.a} loss{loss} mseloss {mse_loss}")
 
         # loss = self.a * (gender_loss / self.max_gender_loss) + (1 - self.a) * (
         #     mse_loss / self.max_mse_loss
