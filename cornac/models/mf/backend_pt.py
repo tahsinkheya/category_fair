@@ -262,9 +262,7 @@ class GenderMseLoss(nn.MSELoss):
         #     mse_loss / self.max_mse_loss
         # )
 
-        # print(
-        #     f"gl{gender_loss/self.max_gender_loss} loss{loss} mseloss {mse_loss/self.max_mse_loss}"
-        # )
+        print(f"gl{gender_loss} loss{loss} mseloss {mse_loss}")
         # print(gender_loss)
         # print(self.max_gender_loss)
 
