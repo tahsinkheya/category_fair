@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import torch
 
 
 class GenderLossMF(object):
@@ -14,15 +15,19 @@ class GenderLossMF(object):
         #         pd_data.append(r)
         # reco_df = pd.DataFrame(pd_data)
         # reco_df["itemID"] = reco_df["itemID"].astype(int)
-        
-        
-        
-        
-        #________
-        recommendations = [recommender.rank(u, k=top_k)[0][:top_k] for u in unique_users]
-        reco_df = pd.DataFrame({"userID":np.repeat(unique_users, top_k), "itemID":np.concatenate(recommendations)})
-        
-        #________
+
+        # ________
+        recommendations = [
+            recommender.rank(u, k=top_k)[0][:top_k] for u in unique_users
+        ]
+        reco_df = pd.DataFrame(
+            {
+                "userID": np.repeat(unique_users, top_k),
+                "itemID": np.concatenate(recommendations),
+            }
+        )
+
+        # ________
 
         users = pd.DataFrame(
             {
@@ -70,12 +75,9 @@ class GenderLossMF(object):
 
         ##########################################
         self.final_df = pd.merge(reco_df, movies, on="itemID", how="inner")
-     
-
-  
 
         self.final_df = self.final_df.groupby("userID")[self.unique_genres].mean()
-   
+     
 
         self.final_df = pd.merge(self.final_df, users, on="userID", how="left")
         # print(movies)
@@ -85,12 +87,17 @@ class GenderLossMF(object):
         ].mean()
         ##########################################
 
-        self.gender_genre_weights = gender_genre_weights_r.sort_index()
+        # self.gender_genre_weights = gender_genre_weights_r.sort_index()
+
+        self.gender_genre_weights_1 = torch.tensor(
+            gender_genre_weights_r.sort_index().to_numpy(), dtype=torch.float32
+        )
 
     def compute(self):
         ##########################################
 
-        uall = self.gender_genre_weights.to_numpy()
+        uall = self.gender_genre_weights_1
+
         ##########################################
 
         # u1 = self.gender_genre_weights_r.iloc[0]
@@ -98,11 +105,14 @@ class GenderLossMF(object):
         # genre_dist_u1 = u1[self.unique_genres].sum()
         # genre_dist_u2 = u2[self.unique_genres].sum()
         ##########################################
-     
-        diff = np.abs(uall[0] - uall[1])
-        retVal = np.sum(diff)
-       
+
+        diff = torch.abs(uall[0] - uall[1])
+        retVal = torch.sum(diff)
+        if retVal.item() == 0:
+            print(self.final_df)
+        # retVal = torch.tensor(retVal, dtype=torch.float)
+
         # print(f"diff{diff} retVal{retVal} oldDiff{abs(uall[0]-uall[1])}")
         ##########################################
-
+        # print(f"dflksdnf {type(retVal)} klsdjflkdsf")
         return retVal

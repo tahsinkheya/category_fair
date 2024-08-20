@@ -518,6 +518,11 @@ class BaseMethod:
             # x=pd.DataFrame(self.train_set.uir_tuple).transpose()
             # x.columns = ["uid",'iid','rating']
             # x = x.astype({"uid":"int", "iid":"int","rating":"int"})
+            # r_global_uid_map = {v: k for k, v in self.global_uid_map.items()}
+            # r_global_iid_map = {v: k for k, v in self.global_iid_map.items()}
+            # x['uid'] = x['uid'].map(r_global_uid_map)
+            # x['iid'] = x['iid'].map(r_global_iid_map)
+         
             # x.to_csv("training_set_seed123.csv", index=False, header=False)
             print("Number of users = {}".format(self.train_set.num_users))
             print("Number of items = {}".format(self.train_set.num_items))
