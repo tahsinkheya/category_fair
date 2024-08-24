@@ -18,6 +18,7 @@ import torch.nn as nn
 from tqdm.auto import trange
 from cornac.models.mf.GenderLossMF import GenderLossMF
 from cornac.models.mf.GenderLossMF2 import GenderLossMF2
+import numpy as np
 
 OPTIMIZER_DICT = {
     "sgd": torch.optim.SGD,
@@ -36,6 +37,7 @@ class MF(nn.Module):
         i_biases,
         use_bias,
         global_mean,
+        global_mean_implicit,
         dropout,
         user_gender=None,
         item_cat=None,
@@ -44,6 +46,7 @@ class MF(nn.Module):
 
         self.use_bias = use_bias
         self.global_mean = global_mean
+        self.global_mean_implicit = global_mean_implicit
         self.dropout = nn.Dropout(p=dropout)
         self.user_gender = user_gender
         self.item_cat = item_cat
@@ -88,8 +91,9 @@ def learn(
     optimizer = OPTIMIZER_DICT[optimizer](
         params=model.parameters(), lr=learning_rate, weight_decay=reg
     )
-    new_loss = GenderMseLoss(a=alpha, reduction="sum")
+    new_loss = GenderMseLoss(a=alpha, reduction="mean")
     printLoss = False
+    all_loss = []
     progress_bar = trange(1, n_epochs + 1, disable=not verbose)
     for _ in progress_bar:
         sum_loss = 0.0
@@ -105,6 +109,7 @@ def learn(
 
             preds = model(u_batch, i_batch)
             # loss = criteria(preds, r_batch)
+            # print(r_batch.shape)
             if _ == n_epochs:
                 # print the max gloss and mseloss for normalization later
                 printLoss = True
@@ -158,12 +163,15 @@ def learn(
             #         print(f"No gradient for {name}")
 
             optimizer.step()
-
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1)
+            all_loss.append(loss.data.item())
             sum_loss += loss.data.item()
             count += len(u_batch)
 
             if batch_id % 10 == 0:
                 progress_bar.set_postfix(loss=(sum_loss / count))
+        if printLoss:
+            print(all_loss)
 
 
 class GenderMseLoss(nn.MSELoss):
@@ -223,7 +231,8 @@ class GenderMseLoss(nn.MSELoss):
             # loss = self.a * (gender_loss / self.max_gender_loss) + (1 - self.a) * (
             #     mse_loss / self.max_mse_loss
             # )
-            loss = self.a * gender_loss + mse_loss
+
+            loss = self.a * -1 / np.log(gender_loss) + (1 - self.a) * mse_loss
 
         else:
             loss = mse_loss
@@ -262,7 +271,9 @@ class GenderMseLoss(nn.MSELoss):
         #     mse_loss / self.max_mse_loss
         # )
 
-        print(f"gl{gender_loss} loss{loss} mseloss {mse_loss}")
+        # print(
+        #     f"gl {gender_loss} {-1/np.log(gender_loss)} loss{loss} mseloss {mse_loss} "
+        # )
         # print(gender_loss)
         # print(self.max_gender_loss)
 

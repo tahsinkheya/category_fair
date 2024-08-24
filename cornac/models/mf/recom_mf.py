@@ -144,13 +144,9 @@ class MF(Recommender, ANNMixin):
         rng = get_rng(self.seed)
 
         if self.u_factors is None:
-            self.u_factors = normal(
-                [self.num_users, self.k], std=0.01, random_state=rng
-            )
+            self.u_factors = normal([self.num_users, self.k], std=0.7, random_state=rng)
         if self.i_factors is None:
-            self.i_factors = normal(
-                [self.num_items, self.k], std=0.01, random_state=rng
-            )
+            self.i_factors = normal([self.num_items, self.k], std=0.6, random_state=rng)
 
         self.u_biases = (
             zeros(self.num_users) if self.u_biases is None else self.u_biases
@@ -159,6 +155,7 @@ class MF(Recommender, ANNMixin):
             zeros(self.num_items) if self.i_biases is None else self.i_biases
         )
         self.global_mean = self.global_mean if self.use_bias else 0.0
+        self.global_mean_implicit = self.global_mean_implicit if self.use_bias else 0.0
 
     def fit(self, train_set, val_set=None):
         """Fit the model to observations.
@@ -245,6 +242,7 @@ class MF(Recommender, ANNMixin):
             self.i_biases.reshape(-1, 1),
             self.use_bias,
             self.global_mean,
+            self.global_mean_implicit,
             self.dropout,
             user_gender=self.user_features,
             item_cat=self.item_features,

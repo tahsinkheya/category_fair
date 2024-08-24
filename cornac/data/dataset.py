@@ -97,10 +97,14 @@ class Dataset(object):
         self.rng = get_rng(seed)
 
         (_, _, r_values) = uir_tuple
+        implict_r_values = np.where(np.asarray(r_values, dtype="float") > 3.5, 1.0, 0.0)
+        
+        
         self.num_ratings = len(r_values)
         self.max_rating = np.max(r_values)
         self.min_rating = np.min(r_values)
         self.global_mean = np.mean(r_values)
+        self.global_mean_implicit = np.mean(implict_r_values)
 
         self.__user_ids = None
         self.__item_ids = None
@@ -523,6 +527,53 @@ class Dataset(object):
                 batch_ratings = np.ones_like(batch_items)
             else:
                 batch_ratings = self.uir_tuple[2][batch_ids]
+
+            if num_zeros > 0:
+                repeated_users = batch_users.repeat(num_zeros)
+                neg_items = np.empty_like(repeated_users)
+                for i, u in enumerate(repeated_users):
+                    j = self.rng.randint(0, self.num_items)
+                    while self.dok_matrix[u, j] > 0:
+                        j = self.rng.randint(0, self.num_items)
+                    neg_items[i] = j
+                batch_users = np.concatenate((batch_users, repeated_users))
+                batch_items = np.concatenate((batch_items, neg_items))
+                batch_ratings = np.concatenate(
+                    (batch_ratings, np.zeros_like(neg_items))
+                )
+
+            yield batch_users, batch_items, batch_ratings
+            
+    def uir_iter_implicit(self, batch_size=1, shuffle=False, binary=False, num_zeros=0):
+        """Create an iterator over data yielding batch of users, items, and rating values
+
+        Parameters
+        ----------
+        batch_size: int, optional, default = 1
+
+        shuffle: bool, optional, default: False
+            If `True`, orders of triplets will be randomized. If `False`, default orders kept.
+
+        binary: bool, optional, default: False
+            If `True`, non-zero ratings will be turned into `1`, otherwise, values remain unchanged.
+
+        num_zeros: int, optional, default = 0
+            Number of unobserved ratings (zeros) to be added per user. This could be used
+            for negative sampling. By default, no values are added.
+
+        Returns
+        -------
+        iterator : batch of users (array of 'int'), batch of items (array of 'int'),
+            batch of ratings (array of 'float')
+
+        """
+        for batch_ids in self.idx_iter(len(self.uir_tuple[0]), batch_size, shuffle):
+            batch_users = self.uir_tuple[0][batch_ids]
+            batch_items = self.uir_tuple[1][batch_ids]
+            if binary:
+                batch_ratings = np.ones_like(batch_items)
+            else:
+                batch_ratings = 1 if self.uir_tuple[2][batch_ids]>3.5 else 0
 
             if num_zeros > 0:
                 repeated_users = batch_users.repeat(num_zeros)

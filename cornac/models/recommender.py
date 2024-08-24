@@ -144,6 +144,7 @@ class Recommender:
         self.max_rating = None
         self.min_rating = None
         self.global_mean = None
+        self.global_mean_implicit = None
 
         self.__user_ids = None
         self.__item_ids = None
@@ -336,6 +337,7 @@ class Recommender:
         self.min_rating = train_set.min_rating
         self.max_rating = train_set.max_rating
         self.global_mean = train_set.global_mean
+        self.global_mean_implicit = train_set.global_mean_implicit
 
         # just for future wrapper to call fit(), not supposed to be used during prediction
         self.train_set = train_set
