@@ -40,6 +40,7 @@ class VAE(nn.Module):
 
         self.likelihood = likelihood
         self.act_fn = ACT.get(act_fn, None)
+        self.decode_fn = ACT.get("sigmoid", None)
         if self.act_fn is None:
             raise ValueError("Supported act_fn: {}".format(ACT.keys()))
 
@@ -61,7 +62,7 @@ class VAE(nn.Module):
                 "fc{}".format(i), nn.Linear(ae_structure[i], ae_structure[i + 1])
             )
             if i != len(ae_structure) - 2:
-                self.decoder.add_module("act{}".format(i), self.act_fn)
+                self.decoder.add_module("act{}".format(i), self.decode_fn)
 
     def encode(self, x):
         h = self.encoder(x)
@@ -89,7 +90,7 @@ class VAE(nn.Module):
         ll_choices = {
             "mult": x * torch.log(x_ + EPS),
             "bern": x * torch.log(x_ + EPS) + (1 - x) * torch.log(1 - x_ + EPS),
-            "gaus": -(x - x_) ** 2,
+            "gaus": -((x - x_) ** 2),
             "pois": x * torch.log(x_ + EPS) - x_,
         }
 

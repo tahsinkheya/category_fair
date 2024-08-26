@@ -138,7 +138,7 @@ class VAECF(Recommender):
                 torch.cuda.manual_seed(self.seed)
 
             self.r_mat = train_set.matrix
-
+       
             if not hasattr(self, "vae"):
                 data_dim = self.r_mat.shape[1]
                 self.vae = VAE(
