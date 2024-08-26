@@ -91,7 +91,7 @@ def learn(
     optimizer = OPTIMIZER_DICT[optimizer](
         params=model.parameters(), lr=learning_rate, weight_decay=reg
     )
-    new_loss = GenderMseLoss(a=alpha, reduction="mean")
+    new_loss = GenderMseLoss(a=alpha, reduction="sum")
     printLoss = False
     all_loss = []
     progress_bar = trange(1, n_epochs + 1, disable=not verbose)
@@ -123,6 +123,8 @@ def learn(
                 # cat_batch,
                 recommender,
                 top_k,
+                batch_size,
+                train_set.max_rating,
                 printLoss,
             )
             # loss = new_loss(
@@ -163,7 +165,7 @@ def learn(
             #         print(f"No gradient for {name}")
 
             optimizer.step()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1)
+            # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1)
             all_loss.append(loss.data.item())
             sum_loss += loss.data.item()
             count += len(u_batch)
@@ -182,8 +184,8 @@ class GenderMseLoss(nn.MSELoss):
         # self.max_gender_loss = -1
         # self.min_mse_loss = 10000
         # self.min_gender_loss = 10000
-        self.max_mse_loss = 404.9754333496094
-        self.max_gender_loss = 0.7370653866116046
+        # self.max_mse_loss = 404.9754333496094
+        # self.max_gender_loss = 0.7370653866116046
 
     def forward(
         self,
@@ -195,6 +197,8 @@ class GenderMseLoss(nn.MSELoss):
         genres,
         recommender,
         top_k,
+        batch_size,
+        max_rating,
         printLoss=False,
     ):
         mse_loss = super().forward(preds, r_batch)
@@ -232,7 +236,10 @@ class GenderMseLoss(nn.MSELoss):
             #     mse_loss / self.max_mse_loss
             # )
 
-            loss = self.a * -1 / np.log(gender_loss) + (1 - self.a) * mse_loss
+            loss = (
+                self.a * gender_loss * (batch_size * max_rating**2)
+                + (1 - self.a) * mse_loss
+            )
 
         else:
             loss = mse_loss
@@ -272,7 +279,7 @@ class GenderMseLoss(nn.MSELoss):
         # )
 
         # print(
-        #     f"gl {gender_loss} {-1/np.log(gender_loss)} loss{loss} mseloss {mse_loss} "
+        #     f"gl {gender_loss} {gender_loss * (batch_size * max_rating**2)} loss{loss} mseloss {mse_loss} {max_rating}"
         # )
         # print(gender_loss)
         # print(self.max_gender_loss)

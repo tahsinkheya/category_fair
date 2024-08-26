@@ -144,9 +144,9 @@ class MF(Recommender, ANNMixin):
         rng = get_rng(self.seed)
 
         if self.u_factors is None:
-            self.u_factors = normal([self.num_users, self.k], std=0.7, random_state=rng)
+            self.u_factors = normal([self.num_users, self.k], std=0.01, random_state=rng)
         if self.i_factors is None:
-            self.i_factors = normal([self.num_items, self.k], std=0.6, random_state=rng)
+            self.i_factors = normal([self.num_items, self.k], std=0.01, random_state=rng)
 
         self.u_biases = (
             zeros(self.num_users) if self.u_biases is None else self.u_biases
