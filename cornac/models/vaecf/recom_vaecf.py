@@ -93,6 +93,8 @@ class VAECF(Recommender):
         verbose=False,
         seed=None,
         use_gpu=False,
+        alpha=0,
+        top_k=0,
     ):
         Recommender.__init__(self, name=name, trainable=trainable, verbose=verbose)
         self.k = k
@@ -105,6 +107,11 @@ class VAECF(Recommender):
         self.beta = beta
         self.seed = seed
         self.use_gpu = use_gpu
+
+        self.user_features = None
+        self.item_features = None
+        self.alpha = alpha
+        self.top_k = top_k
 
     def fit(self, train_set, val_set=None):
         """Fit the model to observations.
@@ -131,14 +138,15 @@ class VAECF(Recommender):
             if (self.use_gpu and torch.cuda.is_available())
             else torch.device("cpu")
         )
-
+        self.user_features = np.array(list(train_set.uid_gender_map.values()))
+        self.item_features = np.array(list(train_set.iid_cat_map.values()))
         if self.trainable:
             if self.seed is not None:
                 torch.manual_seed(self.seed)
                 torch.cuda.manual_seed(self.seed)
 
             self.r_mat = train_set.matrix
-       
+
             if not hasattr(self, "vae"):
                 data_dim = self.r_mat.shape[1]
                 self.vae = VAE(
@@ -157,6 +165,11 @@ class VAECF(Recommender):
                 beta=self.beta,
                 verbose=self.verbose,
                 device=self.device,
+                alpha=self.alpha,
+                user_gender=self.user_features,
+                item_cat=self.item_features,
+                recommender=self,
+                top_k=self.top_k,
             )
 
         elif self.verbose:

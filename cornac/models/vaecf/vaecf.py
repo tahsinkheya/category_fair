@@ -18,6 +18,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from tqdm.auto import trange
+from cornac.gender_regularization.GenderLoss import GenderLoss
 
 from ...utils import estimate_batches
 
@@ -41,6 +42,8 @@ class VAE(nn.Module):
         self.likelihood = likelihood
         self.act_fn = ACT.get(act_fn, None)
         self.decode_fn = ACT.get("sigmoid", None)
+        self.max_loss = 949.7418
+
         if self.act_fn is None:
             raise ValueError("Supported act_fn: {}".format(ACT.keys()))
 
@@ -82,14 +85,20 @@ class VAE(nn.Module):
 
     def forward(self, x):
         mu, logvar = self.encode(x)
+        # print(f"mean {mu} logvariance {logvar}")
         z = self.reparameterize(mu, logvar)
         return self.decode(z), mu, logvar
 
     def loss(self, x, x_, mu, logvar, beta):
+
         # Likelihood
         ll_choices = {
             "mult": x * torch.log(x_ + EPS),
-            "bern": x * torch.log(x_ + EPS) + (1 - x) * torch.log(1 - x_ + EPS),
+            "bern": x * torch.log(x_ + EPS)
+            + (1 - x)
+            * torch.log(
+                1 - x_ + EPS
+            ),  # cant be less than -log2 (in abs, bounded by log 2)
             "gaus": -((x - x_) ** 2),
             "pois": x * torch.log(x_ + EPS) - x_,
         }
@@ -104,8 +113,11 @@ class VAE(nn.Module):
         std = torch.exp(0.5 * logvar)
         kld = -0.5 * (1 + 2.0 * torch.log(std) - mu.pow(2) - std.pow(2))
         kld = torch.sum(kld, dim=1)
+        loss = torch.mean(beta * kld - ll)
+        # if loss> self.max_loss:
+        #     self.max_loss = loss
 
-        return torch.mean(beta * kld - ll)
+        return loss
 
 
 def learn(
@@ -117,9 +129,15 @@ def learn(
     beta,
     verbose,
     device=torch.device("cpu"),
+    alpha=0,
+    user_gender=None,
+    item_cat=None,
+    recommender=None,
+    top_k=0,
 ):
     optimizer = torch.optim.Adam(params=vae.parameters(), lr=learn_rate)
     num_steps = estimate_batches(train_set.num_users, batch_size)
+    all_loss = []
 
     progress_bar = trange(1, n_epochs + 1, disable=not verbose)
     for _ in progress_bar:
@@ -132,19 +150,40 @@ def learn(
             u_batch.data = np.ones(len(u_batch.data))  # Binarize data
             u_batch = u_batch.A
             u_batch = torch.tensor(u_batch, dtype=torch.float32, device=device)
+            uid_batch = torch.from_numpy(u_ids).to(device)
+            g_batch = torch.tensor(user_gender[uid_batch]).to(device)
+
+            if alpha != 0:
+                gl = GenderLoss(
+                    gender=g_batch,
+                    users=uid_batch,
+                    genres=item_cat,
+                    recommender=recommender,
+                    top_k=top_k,
+                )
+                gender_loss = gl.compute()
+            else:
+                gender_loss = 0
 
             # Reconstructed batch
             u_batch_, mu, logvar = vae(u_batch)
 
-            loss = vae.loss(u_batch, u_batch_, mu, logvar, beta)
+            vae_loss = vae.loss(u_batch, u_batch_, mu, logvar, beta)
+
+            # if _ == n_epochs:
+            #     print(vae.max_loss)
+            loss = alpha * gender_loss * vae.max_loss*100 + (1 - alpha) * vae_loss 
+
+            # print(f"gender {gender_loss * vae.max_loss}  vae_loss {vae_loss} loss {loss}")
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-
+            all_loss.append(loss.data.item())
             sum_loss += loss.data.item()
             count += len(u_batch)
 
             if batch_id % 10 == 0:
                 progress_bar.set_postfix(loss=(sum_loss / count))
+    print(all_loss)
 
     return vae
