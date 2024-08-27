@@ -172,7 +172,7 @@ def learn(
 
             # if _ == n_epochs:
             #     print(vae.max_loss)
-            loss = alpha * gender_loss * vae.max_loss*100 + (1 - alpha) * vae_loss 
+            loss = alpha * gender_loss + (1 - alpha) * vae_loss / vae.max_loss
 
             # print(f"gender {gender_loss * vae.max_loss}  vae_loss {vae_loss} loss {loss}")
             optimizer.zero_grad()
