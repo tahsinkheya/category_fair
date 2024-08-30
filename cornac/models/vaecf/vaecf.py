@@ -41,7 +41,7 @@ class VAE(nn.Module):
 
         self.likelihood = likelihood
         self.act_fn = ACT.get(act_fn, None)
-        # self.decode_fn = ACT.get("sigmoid", None)
+        self.decode_fn = ACT.get("sigmoid", None)
         self.max_loss = 949.7418
 
         if self.act_fn is None:
@@ -167,16 +167,22 @@ def learn(
                     top_k=top_k,
                 )
                 gender_loss = gl.compute()
+                loss = alpha * gender_loss * max(batch_loss) + (1 - alpha) * vae_loss
+                # loss = alpha * gender_loss * 10000 + (1-alpha) * vae_loss
+                # loss = alpha * gender_loss + vae_loss
 
             else:
                 gender_loss = 0
-                loss = vae_loss
+                loss = vae_loss 
 
             # if _ == n_epochs:
             #     print(vae.max_loss)
-
-            # print(f"gender {gender_loss * vae.max_loss}  vae_loss {vae_loss} loss {loss}")
+            # print(
+            #     f"gendr loss {alpha*gender_loss} vae_loss {vae_loss} loss {loss}"
+            # )
+            # print(f"gender {gender_loss }  vae_loss {vae_loss/max(batch_loss)} loss {loss}")
             optimizer.zero_grad()
+
             loss.backward()
             optimizer.step()
             all_loss.append(loss.data.item())
@@ -185,6 +191,6 @@ def learn(
 
             if batch_id % 10 == 0:
                 progress_bar.set_postfix(loss=(sum_loss / count))
-    # print(all_loss)
+    print(all_loss)
 
     return vae
