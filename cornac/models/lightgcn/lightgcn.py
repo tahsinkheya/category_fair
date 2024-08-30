@@ -36,7 +36,7 @@ def construct_graph(data_set, total_users, total_items):
         ).float()  # obtain degrees
         src_degree = g.out_degrees(src, etype=(srctype, etype, dsttype)).float()
         norm = torch.pow(src_degree * dst_degree, -0.5).unsqueeze(1)  # compute norm
-        g.edata['norm'] = {etype: norm}
+        g.edata["norm"] = {etype: norm}
 
     return g
 
@@ -81,10 +81,19 @@ class Model(nn.Module):
             }
         )
 
-    def forward(self, in_g: Union[dgl.DGLGraph, List[dgl.DGLGraph]], users=None, pos_items=None, neg_items=None):
+    def forward(
+        self,
+        in_g: Union[dgl.DGLGraph, List[dgl.DGLGraph]],
+        users=None,
+        pos_items=None,
+        neg_items=None,
+    ):
 
         if isinstance(in_g, list):
-            h_dict = {ntype: self.feature_dict[ntype][in_g[0].ndata[dgl.NID][ntype]] for ntype in in_g[0].ntypes}
+            h_dict = {
+                ntype: self.feature_dict[ntype][in_g[0].ndata[dgl.NID][ntype]]
+                for ntype in in_g[0].ntypes
+            }
             user_embeds = h_dict[USER_KEY][in_g[-1].dstnodes(USER_KEY)]
             item_embeds = h_dict[ITEM_KEY][in_g[-1].dstnodes(ITEM_KEY)]
             iterator = enumerate(zip(in_g, self.layers))
@@ -103,7 +112,7 @@ class Model(nn.Module):
             if isinstance(in_g, list):
                 ue = ue[in_g[-1].dstnodes(USER_KEY)]
                 ie = ie[in_g[-1].dstnodes(ITEM_KEY)]
-                
+
             user_embeds = user_embeds + ue
             item_embeds = item_embeds + ie
 
@@ -111,8 +120,12 @@ class Model(nn.Module):
         item_embeds = item_embeds / (len(self.layers) + 1)
 
         u_g_embeddings = user_embeds if users is None else user_embeds[users, :]
-        pos_i_g_embeddings = item_embeds if pos_items is None else item_embeds[pos_items, :]
-        neg_i_g_embeddings = item_embeds if neg_items is None else item_embeds[neg_items, :]
+        pos_i_g_embeddings = (
+            item_embeds if pos_items is None else item_embeds[pos_items, :]
+        )
+        neg_i_g_embeddings = (
+            item_embeds if neg_items is None else item_embeds[neg_items, :]
+        )
 
         return u_g_embeddings, pos_i_g_embeddings, neg_i_g_embeddings
 

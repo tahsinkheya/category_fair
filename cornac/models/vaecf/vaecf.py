@@ -41,7 +41,7 @@ class VAE(nn.Module):
 
         self.likelihood = likelihood
         self.act_fn = ACT.get(act_fn, None)
-        self.decode_fn = ACT.get("sigmoid", None)
+        # self.decode_fn = ACT.get("sigmoid", None)
         self.max_loss = 949.7418
 
         if self.act_fn is None:
@@ -65,7 +65,7 @@ class VAE(nn.Module):
                 "fc{}".format(i), nn.Linear(ae_structure[i], ae_structure[i + 1])
             )
             if i != len(ae_structure) - 2:
-                self.decoder.add_module("act{}".format(i), self.decode_fn)
+                self.decoder.add_module("act{}".format(i), self.act_fn)
 
     def encode(self, x):
         h = self.encoder(x)
@@ -114,10 +114,11 @@ class VAE(nn.Module):
         kld = -0.5 * (1 + 2.0 * torch.log(std) - mu.pow(2) - std.pow(2))
         kld = torch.sum(kld, dim=1)
         loss = torch.mean(beta * kld - ll)
+        batch_loss = beta * kld - ll
         # if loss> self.max_loss:
         #     self.max_loss = loss
 
-        return loss
+        return loss, batch_loss
 
 
 def learn(
@@ -153,6 +154,10 @@ def learn(
             uid_batch = torch.from_numpy(u_ids).to(device)
             g_batch = torch.tensor(user_gender[uid_batch]).to(device)
 
+            # Reconstructed batch
+            u_batch_, mu, logvar = vae(u_batch)
+
+            vae_loss, batch_loss = vae.loss(u_batch, u_batch_, mu, logvar, beta)
             if alpha != 0:
                 gl = GenderLoss(
                     gender=g_batch,
@@ -162,17 +167,13 @@ def learn(
                     top_k=top_k,
                 )
                 gender_loss = gl.compute()
+
             else:
                 gender_loss = 0
-
-            # Reconstructed batch
-            u_batch_, mu, logvar = vae(u_batch)
-
-            vae_loss = vae.loss(u_batch, u_batch_, mu, logvar, beta)
+                loss = vae_loss
 
             # if _ == n_epochs:
             #     print(vae.max_loss)
-            loss = alpha * gender_loss + (1 - alpha) * vae_loss / vae.max_loss
 
             # print(f"gender {gender_loss * vae.max_loss}  vae_loss {vae_loss} loss {loss}")
             optimizer.zero_grad()
@@ -184,6 +185,6 @@ def learn(
 
             if batch_id % 10 == 0:
                 progress_bar.set_postfix(loss=(sum_loss / count))
-    print(all_loss)
+    # print(all_loss)
 
     return vae

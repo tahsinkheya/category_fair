@@ -10,11 +10,11 @@ class GenderLoss(object):
         recommendations = [
             recommender.rank(u, k=top_k)[0][:top_k] for u in unique_users
         ]
-        print("::::::")
-        print(recommender.score(1, 3))
-        print(recommender.score(2, 3))
-        print(recommender.score(1, 4))
-        print("::::::")
+        # print("::::::")
+        # print(recommender.score(1, 3))
+        # print(recommender.score(2, 3))
+        # print(recommender.score(1, 4))
+        # print("::::::")
 
         reco_df = pd.DataFrame(
             {

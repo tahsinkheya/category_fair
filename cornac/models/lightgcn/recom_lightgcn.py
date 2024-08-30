@@ -16,6 +16,8 @@
 from ..recommender import Recommender
 from ..recommender import ANNMixin, MEASURE_DOT
 from ...exception import ScoreException
+import numpy as np
+from cornac.gender_regularization.GenderLoss import GenderLoss
 
 from tqdm.auto import tqdm, trange
 
@@ -81,13 +83,17 @@ class LightGCN(Recommender, ANNMixin):
         emb_size=64,
         num_epochs=1000,
         learning_rate=0.001,
-        batch_size=1024,
+        batch_size=256,
         num_layers=3,
         early_stopping=None,
         lambda_reg=1e-4,
         trainable=True,
+        user_features=None,
+        item_features=None,
         verbose=False,
         seed=2020,
+        alpha=0,
+        top_k=0,
     ):
         super().__init__(name=name, trainable=trainable, verbose=verbose)
         self.emb_size = emb_size
@@ -98,6 +104,10 @@ class LightGCN(Recommender, ANNMixin):
         self.early_stopping = early_stopping
         self.lambda_reg = lambda_reg
         self.seed = seed
+        self.user_features = user_features
+        self.item_features = item_features
+        self.alpha = alpha
+        self.top_k = top_k
 
     def fit(self, train_set, val_set=None):
         """Fit the model to observations.
@@ -114,6 +124,10 @@ class LightGCN(Recommender, ANNMixin):
         -------
         self : object
         """
+        gender_values = np.array(list(train_set.uid_gender_map.values()))
+        item_cats = np.array(list(train_set.iid_cat_map.values()))
+        self.user_features = gender_values
+        self.item_features = item_cats
         Recommender.fit(self, train_set, val_set)
 
         if not self.trainable:
@@ -169,6 +183,7 @@ class LightGCN(Recommender, ANNMixin):
                 position=1,
                 disable=not self.verbose,
             ):
+
                 u_g_embeddings, pos_i_g_embeddings, neg_i_g_embeddings = model(
                     graph, batch_u, batch_i, batch_j
                 )
@@ -176,10 +191,28 @@ class LightGCN(Recommender, ANNMixin):
                 batch_loss, batch_bpr_loss, batch_reg_loss = model.loss_fn(
                     u_g_embeddings, pos_i_g_embeddings, neg_i_g_embeddings
                 )
+                # print(f"batch loss {batch_loss}")
                 accum_loss += batch_loss.cpu().item() * len(batch_u)
+                u_batch = torch.from_numpy(batch_u).to(device)
 
+                g_batch = torch.tensor(self.user_features[u_batch]).to(device)
+
+                if self.alpha != 0:
+                    gl = GenderLoss(
+                        gender=g_batch,
+                        users=u_batch,
+                        genres=self.item_features,
+                        recommender=self,
+                        top_k=self.top_k,
+                    )
+                    gender_loss = gl.compute()
+                else:
+                    gender_loss = 0
+
+                loss = self.alpha * gender_loss + (1 - self.alpha) * batch_loss
+                # print(f"gender loss {gender_loss} batch loss {batch_loss} loss {loss}")
                 optimizer.zero_grad()
-                batch_loss.backward()
+                loss.backward()
                 optimizer.step()
 
             accum_loss /= len(train_set.uir_tuple[0])  # normalize over all observations
