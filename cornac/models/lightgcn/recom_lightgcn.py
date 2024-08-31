@@ -184,9 +184,17 @@ class LightGCN(Recommender, ANNMixin):
                 disable=not self.verbose,
             ):
 
-                u_g_embeddings, pos_i_g_embeddings, neg_i_g_embeddings = model(
-                    graph, batch_u, batch_i, batch_j
-                )
+                (
+                    u_g_embeddings,
+                    pos_i_g_embeddings,
+                    neg_i_g_embeddings,
+                    all_u_emb,
+                    all_i_emb,
+                ) = model(graph, batch_u, batch_i, batch_j)
+                self.U_in_batch = all_u_emb
+                self.V_in_batch = all_i_emb
+                print("::::::")
+                print(self.U_in_batch)
 
                 batch_loss, batch_bpr_loss, batch_reg_loss = model.loss_fn(
                     u_g_embeddings, pos_i_g_embeddings, neg_i_g_embeddings
@@ -220,7 +228,8 @@ class LightGCN(Recommender, ANNMixin):
 
             # store user and item embedding matrices for prediction
             model.eval()
-            u_embs, i_embs, _ = model(graph)
+            u_embs, i_embs, _, _, _ = model(graph)
+
             # we will use numpy for faster prediction in the score function, no need torch
             self.U = u_embs.cpu().detach().numpy()
 
@@ -326,3 +335,99 @@ class LightGCN(Recommender, ANNMixin):
             Matrix of item vectors for all items available in the model.
         """
         return self.V
+
+    def score_edited(self, user_idx, item_idx=None):
+        """
+        ADDED FOR PAPER EQUAL LIGHTS, FAIR CAMERA, DIVERSE ACTIONS!
+
+        "Predict the scores/ratings of a user for an item.
+
+        Parameters
+        ----------
+        user_idx: int, required
+            The index of the user for whom to perform score prediction.
+
+        item_idx: int, optional, default: None
+            The index of the item for which to perform score prediction.
+            If None, scores for all known items will be returned.
+        self.V_in_batch: represents inbatch embeddings for the current batch, its diff to self.V
+        self.U_in_batch: represents inbatch embeddings for the current batch, its diff to self.U
+
+        Returns
+        -------
+        res : A scalar or a Numpy array
+            Relative scores that the user gives to the item or to all known items
+
+        """
+        if item_idx is None:
+            if not self.knows_user(user_idx):
+                raise ScoreException(
+                    "Can't make score prediction for (user_id=%d)" % user_idx
+                )
+            known_item_scores = self.V_in_batch.dot(self.U_in_batch[user_idx, :])
+            return known_item_scores
+        else:
+            if not (self.knows_user(user_idx) and self.knows_item(item_idx)):
+                raise ScoreException(
+                    "Can't make score prediction for (user_id=%d, item_id=%d)"
+                    % (user_idx, item_idx)
+                )
+            return self.V_in_batch[item_idx, :].dot(self.U_in_batch[user_idx, :])
+
+    def rank_edited(self, user_idx, item_indices=None, k=-1, **kwargs):
+        """
+        ADDED FOR PAPER EQUAL LIGHTS, FAIR CAMERA, DIVERSE ACTIONS!
+        Rank all test items for a given user.
+
+        Parameters
+        ----------
+        user_idx: int, required
+            The index of the user for whom to perform item raking.
+
+        item_indices: 1d array, optional, default: None
+            A list of candidate item indices to be ranked by the user.
+            If `None`, list of ranked known item indices and their scores will be returned.
+
+        k: int, required
+            Cut-off length for recommendations, k=-1 will return ranked list of all items.
+            This is more important for ANN to know the limit to avoid exhaustive ranking.
+
+        Returns
+        -------
+        (ranked_items, item_scores): tuple
+            `ranked_items` contains item indices being ranked by their scores.
+            `item_scores` contains scores of items corresponding to index in `item_indices` input.
+
+        """
+        # obtain item scores from the model
+        try:
+            known_item_scores = self.score_edited(user_idx, **kwargs)
+        except ScoreException:
+            known_item_scores = np.ones(self.total_items) * self.default_score()
+
+        # check if the returned scores also cover unknown items
+        # if not, all unknown items will be given the MIN score
+        if len(known_item_scores) == self.total_items:
+            all_item_scores = known_item_scores
+        else:
+            all_item_scores = np.ones(self.total_items) * np.min(known_item_scores)
+            all_item_scores[: self.num_items] = known_item_scores
+
+        # rank items based on their scores
+        item_indices = (
+            np.arange(self.num_items)
+            if item_indices is None
+            else np.asarray(item_indices)
+        )
+        item_scores = all_item_scores[item_indices]
+
+        if k != -1:  # O(n + k log k), faster for small k which is usually the case
+            partitioned_idx = np.argpartition(item_scores, -k)
+            top_k_idx = partitioned_idx[-k:]
+            sorted_top_k_idx = top_k_idx[np.argsort(item_scores[top_k_idx])]
+            partitioned_idx[-k:] = sorted_top_k_idx
+            ranked_items = item_indices[partitioned_idx[::-1]]
+        else:  # O(n log n)
+            ranked_items = item_indices[item_scores.argsort()[::-1]]
+
+        return ranked_items, item_scores

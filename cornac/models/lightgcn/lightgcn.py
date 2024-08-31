@@ -127,7 +127,13 @@ class Model(nn.Module):
             item_embeds if neg_items is None else item_embeds[neg_items, :]
         )
 
-        return u_g_embeddings, pos_i_g_embeddings, neg_i_g_embeddings
+        return (
+            u_g_embeddings,
+            pos_i_g_embeddings,
+            neg_i_g_embeddings,
+            user_embeds,
+            item_embeds,
+        )
 
     def loss_fn(self, users, pos_items, neg_items):
         pos_scores = (users * pos_items).sum(1)
@@ -143,5 +149,10 @@ class Model(nn.Module):
             )
             / len(users)
         )
+
+        print("?>??>>?>?>?>")
+        print(bpr_loss)
+        print(F.softplus(neg_scores - pos_scores).shape)
+        print("?>??>>?>?>?>")
 
         return bpr_loss + self.lambda_reg * reg_loss, bpr_loss, reg_loss
