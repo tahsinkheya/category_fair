@@ -129,7 +129,7 @@ def learn(
                 train_set.min_rating,
                 printLoss,
             )
-            print(loss.requires_grad)
+            # print(loss.requires_grad)
 
             optimizer.zero_grad()
             loss.backward()
@@ -193,13 +193,16 @@ class GenderMseLossBeyonParity(nn.MSELoss):
             gender_loss = U_val / len(u_batch)
 
             loss = (
-                self.a # a is 1 
-                * (gender_loss / (2 * max_rating))  # normalize
+                self.a  # a is 1
+                * (gender_loss / (2 * (max_rating - min_rating)))  # normalize
                 * (
                     batch_size * (max_rating - min_rating) ** 2
                 )  # scale up to mseloss's scale
                 + mse_loss
             )
+            # print(
+            #     f"loss {loss} mseloss{mse_loss} gend {  (gender_loss / (2 * max_rating)) * (batch_size * (max_rating - min_rating) ** 2) }"
+            # )
 
         else:
             loss = mse_loss

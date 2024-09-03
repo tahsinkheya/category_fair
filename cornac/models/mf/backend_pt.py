@@ -104,16 +104,12 @@ def learn(
             u_batch = torch.from_numpy(u_batch).to(device)
             i_batch = torch.from_numpy(i_batch).to(device)
             r_batch = torch.tensor(r_batch, dtype=torch.float).to(device)
-            print("rrrrrr")
-            print(r_batch)
-            print("rrrrrr")
+       
             g_batch = torch.tensor(model.user_gender[u_batch]).to(device)
             cat_batch = torch.tensor(model.item_cat[i_batch]).to(device)
 
             preds = model(u_batch, i_batch)
-            print("ppppp")
-            print(preds)
-            print("ppppp")
+       
             # loss = criteria(preds, r_batch)
             # print(r_batch.shape)
             if _ == n_epochs:
@@ -133,7 +129,6 @@ def learn(
                 train_set.max_rating,
                 printLoss,
             )
-            print(loss.requires_grad)
             # loss = new_loss(
             #     preds, r_batch, g_batch, u_batch, i_batch, cat_batch, recommender, top_k
             # )
