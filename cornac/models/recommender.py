@@ -15,6 +15,7 @@
 
 import copy
 import inspect
+import torch
 import os
 import pickle
 import warnings
@@ -474,6 +475,77 @@ class Recommender:
             rating_pred = clip(rating_pred, self.min_rating, self.max_rating)
 
         return rating_pred
+
+    def differentiable_rank(self, user_idx, item_indices=None, k=-1, **kwargs):
+        """Rank all test items for a given user. this is a special method for paper titled PAPER EQUAL LIGHTS, FAIR CAMERA, DIVERSE ACTIONS!
+        to make the funciton differentiable since we are using this for loss optimization
+
+        Parameters
+        ----------
+        user_idx: int, required
+            The index of the user for whom to perform item raking.
+
+        item_indices: 1d array, optional, default: None
+            A list of candidate item indices to be ranked by the user.
+            If `None`, list of ranked known item indices and their scores will be returned.
+
+        k: int, required
+            Cut-off length for recommendations, k=-1 will return ranked list of all items.
+            This is more important for ANN to know the limit to avoid exhaustive ranking.
+
+        Returns
+        -------
+        (ranked_items, item_scores): tuple
+            `ranked_items` contains item indices being ranked by their scores.
+            `item_scores` contains scores of items corresponding to index in `item_indices` input.
+
+        """
+        # obtain item scores from the model
+        try:
+            known_item_scores = self.differentiable_score(user_idx, **kwargs)
+        except ScoreException:
+            known_item_scores = torch.ones(self.total_items) * self.default_score()
+        if len(known_item_scores) == self.total_items:
+            all_item_scores = known_item_scores
+        else:
+            all_item_scores = torch.ones(self.total_items) * torch.min(
+                known_item_scores
+            )
+            all_item_scores[: self.num_items] = known_item_scores
+
+        item_indices = (
+            torch.arange(self.num_items)
+            if item_indices is None
+            else torch.tensor(item_indices)
+        )
+        item_indices_np = (
+            np.arange(self.num_items)
+            if item_indices is None
+            else np.asarray(item_indices)
+        )
+        item_scores = all_item_scores[item_indices]
+        print(all_item_scores)
+        print(item_scores)
+
+        item_scores_np = all_item_scores[item_indices_np]
+        if k != -1:  # O(n + k log k), faster for small k which is usually the case
+            partitioned_idx = np.argpartition(item_scores_np, -k)
+            partitioned_scores, partitioned_idx_ = torch.topk(
+                item_scores, k, largest=True, sorted=False
+            )
+
+            top_k_idx = partitioned_idx[-k:]
+            print("::::::")
+            print(top_k_idx)
+            print("::::::")
+            print(partitioned_idx_)
+            sorted_top_k_idx = top_k_idx[np.argsort(item_scores[top_k_idx])]
+            partitioned_idx[-k:] = sorted_top_k_idx
+            ranked_items = item_indices[partitioned_idx[::-1]]
+        else:  # O(n log n)
+            ranked_items = item_indices[item_scores.argsort()[::-1]]
+
+        return ranked_items, item_scores
 
     def rank(self, user_idx, item_indices=None, k=-1, **kwargs):
         """Rank all test items for a given user.

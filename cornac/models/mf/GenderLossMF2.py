@@ -31,7 +31,9 @@ class GenderLossMF2(object):
                 "itemID": np.concatenate(recommendations),
             }
         )
-
+        # print(">>>>>>")
+        # print(recommender.score(1, 3))
+        # print(">>>>>>")
         # ________
 
         users = pd.DataFrame(

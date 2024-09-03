@@ -161,9 +161,11 @@ class MF(Recommender, ANNMixin):
         self.u_biases = (
             zeros(self.num_users) if self.u_biases is None else self.u_biases
         )
+
         self.i_biases = (
             zeros(self.num_items) if self.i_biases is None else self.i_biases
         )
+
         self.global_mean = self.global_mean if self.use_bias else 0.0
         self.global_mean_implicit = self.global_mean_implicit if self.use_bias else 0.0
 
@@ -275,7 +277,6 @@ class MF(Recommender, ANNMixin):
             recommender=self,
             top_k=self.top_k,
         )
-
         self.u_factors = model.u_factors.weight.detach().cpu().numpy()
         self.i_factors = model.i_factors.weight.detach().cpu().numpy()
         if self.use_bias:
@@ -300,11 +301,54 @@ class MF(Recommender, ANNMixin):
             Relative scores that the user gives to the item or to all known items
 
         """
+        # print(">>>>>>")
+        # print(self.i_factors[9])
+        # print(">>bbbb>>>>")
+        # print(self.u_factors[user_idx])
+        # print(">>>>>>")
         if item_idx is not None and self.is_unknown_item(item_idx):
             raise ScoreException("Can't make score prediction for item %d" % item_idx)
 
         if item_idx is None:
             known_item_scores = self.global_mean + self.i_biases
+            if self.knows_user(user_idx):
+                known_item_scores += self.u_biases[user_idx]
+                fast_dot(self.u_factors[user_idx], self.i_factors, known_item_scores)
+            return known_item_scores
+        else:
+            item_score = self.global_mean + self.i_biases[item_idx]
+            if self.knows_user(user_idx):
+                item_score += self.u_biases[user_idx]
+                item_score += self.u_factors[user_idx].dot(self.i_factors[item_idx])
+            return item_score
+
+    def differentiable_score(self, user_idx, item_idx=None):
+        """Predict the scores/ratings of a user for an item.
+        this is a special method for paper titled PAPER EQUAL LIGHTS, FAIR CAMERA, DIVERSE ACTIONS!
+        to make the funciton differentiable since we are using this for loss optimization
+
+
+        Parameters
+        ----------
+        user_idx: int, required
+            The index of the user for whom to perform score prediction.
+
+        item_idx: int, optional, default: None
+            The index of the item for which to perform score prediction.
+            If None, scores for all known items will be returned.
+
+        Returns
+        -------
+        res : A scalar or a Numpy array
+            Relative scores that the user gives to the item or to all known items
+
+        """
+        # if item_idx is not None and self.is_unknown_item(item_idx):
+        #     raise ScoreException("Can't make score prediction for item %d" % item_idx)
+
+        if item_idx is None:
+            known_item_scores = self.global_mean + self.i_biases
+            print(type(self.i_biases))
             if self.knows_user(user_idx):
                 known_item_scores += self.u_biases[user_idx]
                 fast_dot(self.u_factors[user_idx], self.i_factors, known_item_scores)
