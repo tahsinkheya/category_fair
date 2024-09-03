@@ -150,9 +150,9 @@ class Model(nn.Module):
             / len(users)
         )
 
-        print("?>??>>?>?>?>")
-        print(bpr_loss)
-        print(F.softplus(neg_scores - pos_scores).shape)
-        print("?>??>>?>?>?>")
+        # print("?>??>>?>?>?>")
+        # print(bpr_loss)
+        # print(F.softplus(neg_scores - pos_scores).shape)
+        # print("?>??>>?>?>?>")
 
-        return bpr_loss + self.lambda_reg * reg_loss, bpr_loss, reg_loss
+        return bpr_loss + self.lambda_reg * reg_loss, bpr_loss, reg_loss, F.softplus(neg_scores - pos_scores)

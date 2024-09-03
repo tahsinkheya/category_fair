@@ -2,18 +2,18 @@ import pandas as pd
 import numpy as np
 import torch
 
-#### for light gcn we call a 
-class GenderLoss(object):
+
+#### for light gcn we call a
+class GenderLossGCN(object):
     def __init__(self, gender, users, genres, recommender, top_k):
 
         unique_users = torch.unique(users)
         recommendations = [
-            recommender.rank(u, k=top_k)[0][:top_k] for u in unique_users
+            recommender.rank_edited(u, k=top_k)[0][:top_k] for u in unique_users
         ]
         # print("::::::")
-        # print(recommender.score(1, 3))
-        # print(recommender.score(2, 3))
-        # print(recommender.score(1, 4))
+        # print(recommender.rank_edited(1, k=3))
+        # print(recommender.rank_edited(40, k=3))
         # print("::::::")
 
         reco_df = pd.DataFrame(

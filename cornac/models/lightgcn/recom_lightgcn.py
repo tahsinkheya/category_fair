@@ -17,8 +17,8 @@ from ..recommender import Recommender
 from ..recommender import ANNMixin, MEASURE_DOT
 from ...exception import ScoreException
 import numpy as np
-from cornac.gender_regularization.GenderLoss import GenderLoss
-
+from cornac.models.lightgcn.GenderLossLGCN import GenderLossGCN
+import torch
 from tqdm.auto import tqdm, trange
 
 
@@ -193,11 +193,11 @@ class LightGCN(Recommender, ANNMixin):
                 ) = model(graph, batch_u, batch_i, batch_j)
                 self.U_in_batch = all_u_emb
                 self.V_in_batch = all_i_emb
-                print("::::::")
-                print(self.U_in_batch)
 
-                batch_loss, batch_bpr_loss, batch_reg_loss = model.loss_fn(
-                    u_g_embeddings, pos_i_g_embeddings, neg_i_g_embeddings
+                batch_loss, batch_bpr_loss, batch_reg_loss, all_batch_loss = (
+                    model.loss_fn(
+                        u_g_embeddings, pos_i_g_embeddings, neg_i_g_embeddings
+                    )
                 )
                 # print(f"batch loss {batch_loss}")
                 accum_loss += batch_loss.cpu().item() * len(batch_u)
@@ -206,7 +206,7 @@ class LightGCN(Recommender, ANNMixin):
                 g_batch = torch.tensor(self.user_features[u_batch]).to(device)
 
                 if self.alpha != 0:
-                    gl = GenderLoss(
+                    gl = GenderLossGCN(
                         gender=g_batch,
                         users=u_batch,
                         genres=self.item_features,
@@ -217,10 +217,22 @@ class LightGCN(Recommender, ANNMixin):
                 else:
                     gender_loss = 0
 
-                loss = self.alpha * gender_loss + (1 - self.alpha) * batch_loss
-                # print(f"gender loss {gender_loss} batch loss {batch_loss} loss {loss}")
+                loss = (
+                    self.alpha * gender_loss * max(all_batch_loss)
+                    + (1 - self.alpha) * batch_loss
+                )
+
+                # print(f"gender loss {gender_loss } batch loss {batch_loss} loss {loss}")
+                # print(
+                #     f"gender loss norma{gender_loss * max(all_batch_loss)} batch loss {batch_loss} loss {loss}"
+                # )
                 optimizer.zero_grad()
                 loss.backward()
+
+                # for name, param in model.named_parameters():
+                #     print(name)
+                #     if param.grad is not None:
+                #         print(param.grad.norm())
                 optimizer.step()
 
             accum_loss /= len(train_set.uir_tuple[0])  # normalize over all observations
@@ -364,7 +376,15 @@ class LightGCN(Recommender, ANNMixin):
                 raise ScoreException(
                     "Can't make score prediction for (user_id=%d)" % user_idx
                 )
-            known_item_scores = self.V_in_batch.dot(self.U_in_batch[user_idx, :])
+            known_item_scores = (
+                self.V_in_batch.detach()
+                .numpy()
+                .dot(self.U_in_batch.detach().numpy()[user_idx, :])
+            )
+            # known_item_scores = torch.matmul(
+            #     self.V_in_batch, self.U_in_batch[user_idx, :]
+            # )
+
             return known_item_scores
         else:
             if not (self.knows_user(user_idx) and self.knows_item(item_idx)):
@@ -377,7 +397,7 @@ class LightGCN(Recommender, ANNMixin):
     def rank_edited(self, user_idx, item_indices=None, k=-1, **kwargs):
         """
         ADDED FOR PAPER EQUAL LIGHTS, FAIR CAMERA, DIVERSE ACTIONS!
-        Rank all test items for a given user.
+        Rank all test items for a given user using the new score method
 
         Parameters
         ----------
@@ -407,6 +427,7 @@ class LightGCN(Recommender, ANNMixin):
 
         # check if the returned scores also cover unknown items
         # if not, all unknown items will be given the MIN score
+
         if len(known_item_scores) == self.total_items:
             all_item_scores = known_item_scores
         else:
@@ -427,7 +448,15 @@ class LightGCN(Recommender, ANNMixin):
             sorted_top_k_idx = top_k_idx[np.argsort(item_scores[top_k_idx])]
             partitioned_idx[-k:] = sorted_top_k_idx
             ranked_items = item_indices[partitioned_idx[::-1]]
+            # print(ranked_items)
         else:  # O(n log n)
             ranked_items = item_indices[item_scores.argsort()[::-1]]
 
         return ranked_items, item_scores
+
+
+#  _, partitioned_idx = torch.topk(item_scores, k, largest=True, sorted=False)
+#             sorted_top_k_idx = partitioned_idx[torch.argsort(item_scores[partitioned_idx])]
+
+#             partitioned_idx[-k:] = sorted_top_k_idx
+#             ranked_items = item_indices[partitioned_idx.flip(0)]

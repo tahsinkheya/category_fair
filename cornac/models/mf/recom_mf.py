@@ -79,6 +79,10 @@ class MF(Recommender, ANNMixin):
     seed: int, optional, default: None
         Random seed for weight initialization.
         If specified, training will take longer because of single-thread (no parallelization).
+        
+    run_mode: str, optional, default: genre
+        Used to decide which model to run. genre would run the implementation of my paper title "EQUAL LIGHTS, FAIR CAMERA, DIVERSE ACTIONS!"
+        bp would run the implementation of paper titled "Beyond Parity: Fairness Objectives for Collaborative Filtering"  url = {https://proceedings.neurips.cc/paper_files/paper/2017/file/e6384711491713d29bc63fc5eeb5ba4f-Paper.pdf},
 
     References
     ----------
@@ -108,6 +112,7 @@ class MF(Recommender, ANNMixin):
         item_features=None,
         alpha=0,
         top_k=0,
+        run_mode="genre",
     ):
         super().__init__(name=name, trainable=trainable, verbose=verbose)
         self.k = k
@@ -125,6 +130,7 @@ class MF(Recommender, ANNMixin):
         self.item_features = item_features
         self.alpha = alpha
         self.top_k = top_k
+        self.run_mode = run_mode
 
         if seed is not None:
             self.num_threads = 1
@@ -144,9 +150,13 @@ class MF(Recommender, ANNMixin):
         rng = get_rng(self.seed)
 
         if self.u_factors is None:
-            self.u_factors = normal([self.num_users, self.k], std=0.01, random_state=rng)
+            self.u_factors = normal(
+                [self.num_users, self.k], std=0.01, random_state=rng
+            )
         if self.i_factors is None:
-            self.i_factors = normal([self.num_items, self.k], std=0.01, random_state=rng)
+            self.i_factors = normal(
+                [self.num_items, self.k], std=0.01, random_state=rng
+            )
 
         self.u_biases = (
             zeros(self.num_users) if self.u_biases is None else self.u_biases
@@ -224,7 +234,11 @@ class MF(Recommender, ANNMixin):
     #####################
     def _fit_pt(self, train_set, val_set):
         import torch
-        from .backend_pt import MF, learn
+
+        if self.run_mode == "genre":
+            from .backend_pt import MF, learn
+        else:
+            from .backend_pt_bp import MF, learn
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.device = device
