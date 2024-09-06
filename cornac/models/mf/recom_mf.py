@@ -17,7 +17,7 @@
 import multiprocessing
 
 import numpy as np
-
+import torch
 from ..recommender import Recommender
 from ..recommender import ANNMixin, MEASURE_DOT
 from ...exception import ScoreException
@@ -146,6 +146,12 @@ class MF(Recommender, ANNMixin):
         self.u_biases = self.init_params.get("Bu", None)
         self.i_biases = self.init_params.get("Bi", None)
 
+        # these values are gonna be used to calculate gender loss so we are gonna update these after training every batch
+        self.u_factors_batch = self.init_params.get("U", None)
+        self.i_factors_batch = self.init_params.get("V", None)
+        self.u_biases_batch = self.init_params.get("Bu", None)
+        self.i_biases_batch = self.init_params.get("Bi", None)
+
     def _init(self):
         rng = get_rng(self.seed)
 
@@ -165,9 +171,13 @@ class MF(Recommender, ANNMixin):
         self.i_biases = (
             zeros(self.num_items) if self.i_biases is None else self.i_biases
         )
-
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.global_mean = self.global_mean if self.use_bias else 0.0
         self.global_mean_implicit = self.global_mean_implicit if self.use_bias else 0.0
+        self.u_factors_batch = torch.from_numpy(self.u_factors).to(device)
+        self.i_factors_batch = torch.from_numpy(self.i_factors).to(device)
+        self.u_biases_batch = torch.from_numpy(self.u_biases).to(device)
+        self.i_biases_batch = torch.from_numpy(self.i_biases).to(device)
 
     def fit(self, train_set, val_set=None):
         """Fit the model to observations.
@@ -311,8 +321,14 @@ class MF(Recommender, ANNMixin):
 
         if item_idx is None:
             known_item_scores = self.global_mean + self.i_biases
+            print(known_item_scores)
             if self.knows_user(user_idx):
                 known_item_scores += self.u_biases[user_idx]
+                print(known_item_scores)
+                print("///////")
+                # print(self.u_biases[user_idx].shape)
+                # print(self.u_factors[user_idx].shape)
+                # print(self.i_factors.shape)
                 fast_dot(self.u_factors[user_idx], self.i_factors, known_item_scores)
             return known_item_scores
         else:
@@ -345,20 +361,47 @@ class MF(Recommender, ANNMixin):
         """
         # if item_idx is not None and self.is_unknown_item(item_idx):
         #     raise ScoreException("Can't make score prediction for item %d" % item_idx)
+        if item_idx is not None and self.is_unknown_item(item_idx):
+            raise ScoreException("Can't make score prediction for item %d" % item_idx)
 
         if item_idx is None:
-            known_item_scores = self.global_mean + self.i_biases
-            print(type(self.i_biases))
+            # known_item_scores = self.global_mean + self.i_biases
+            known_item_scores_2 = self.global_mean + self.i_biases_batch
+            # print(known_item_scores_2)
+
             if self.knows_user(user_idx):
-                known_item_scores += self.u_biases[user_idx]
-                fast_dot(self.u_factors[user_idx], self.i_factors, known_item_scores)
-            return known_item_scores
+                # known_item_scores += self.u_biases[user_idx]
+                known_item_scores_2 += self.u_biases_batch[user_idx]
+                # print(known_item_scores_2)
+                # print("///////^-^//////")
+
+                # print(user_idx)
+                # print(known_item_scores_2.shape)
+                # print(self.u_biases_batch[user_idx].shape)
+                # print(self.u_factors_batch[user_idx].shape)
+                # print(self.i_factors_batch.shape)
+
+                known_item_scores_2 += torch.matmul(
+                    self.u_factors_batch[user_idx], self.i_factors_batch.T
+                )
+
+                # fast_dot(self.u_factors[user_idx], self.i_factors, known_item_scores)
+
+            return known_item_scores_2
         else:
-            item_score = self.global_mean + self.i_biases[item_idx]
+            # item_score = self.global_mean + self.i_biases[item_idx]
+            item_score_2 = self.global_mean + self.i_biases_batch[item_idx]
+
             if self.knows_user(user_idx):
-                item_score += self.u_biases[user_idx]
-                item_score += self.u_factors[user_idx].dot(self.i_factors[item_idx])
-            return item_score
+                # item_score += self.u_biases[user_idx]
+                item_score_2 += self.u_biases_batch[user_idx]
+
+                # item_score += self.u_factors[user_idx].dot(self.i_factors[item_idx])
+                item_score_2 += torch.dot(
+                    self.u_factors_batch[user_idx], self.i_factors_batch[item_idx]
+                )
+
+            return item_score_2
 
     def get_vector_measure(self):
         """Getting a valid choice of vector measurement in ANNMixin._measures.

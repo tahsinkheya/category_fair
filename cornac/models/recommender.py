@@ -423,6 +423,26 @@ class Recommender:
         """
         pass
 
+    def differentiable_score(self, user_idx, item_idx=None):
+        """Predict the scores/ratings of a user for an item.
+
+        Parameters
+        ----------
+        user_idx: int, required
+            The index of the user for whom to perform score prediction.
+
+        item_idx: int, optional, default: None
+            The index of the item for which to perform score prediction.
+            If None, scores for all known items will be returned.
+
+        Returns
+        -------
+        res : A scalar or a Numpy array
+            Relative scores that the user gives to the item or to all known items
+
+        """
+        raise NotImplementedError("The algorithm is not able to make score prediction!")
+
     def score(self, user_idx, item_idx=None):
         """Predict the scores/ratings of a user for an item.
 
@@ -524,26 +544,28 @@ class Recommender:
             else np.asarray(item_indices)
         )
         item_scores = all_item_scores[item_indices]
-        print(all_item_scores)
-        print(item_scores)
+        # print(">?>?././././.")
+        # print(item_indices)
+        # print(item_indices_np)
+        # print(all_item_scores)
+        # print(item_scores)
+        # print(">?>?././././.")
 
         item_scores_np = all_item_scores[item_indices_np]
         if k != -1:  # O(n + k log k), faster for small k which is usually the case
-            partitioned_idx = np.argpartition(item_scores_np, -k)
+            # partitioned_idx = np.argpartition(item_scores_np, -k)
             partitioned_scores, partitioned_idx_ = torch.topk(
                 item_scores, k, largest=True, sorted=False
             )
+            sorted_top_k_idx = partitioned_idx_[
+                torch.argsort(item_scores[partitioned_idx_])
+            ]
+            # partitioned_idx[-k:] = sorted_top_k_idx
+            ranked_items = item_indices[sorted_top_k_idx.flip(0)]
 
-            top_k_idx = partitioned_idx[-k:]
-            print("::::::")
-            print(top_k_idx)
-            print("::::::")
-            print(partitioned_idx_)
-            sorted_top_k_idx = top_k_idx[np.argsort(item_scores[top_k_idx])]
-            partitioned_idx[-k:] = sorted_top_k_idx
-            ranked_items = item_indices[partitioned_idx[::-1]]
         else:  # O(n log n)
-            ranked_items = item_indices[item_scores.argsort()[::-1]]
+            sorted_ind = torch.argsort(item_scores[partitioned_idx_], descending=True)
+            ranked_items = item_indices[sorted_ind]
 
         return ranked_items, item_scores
 

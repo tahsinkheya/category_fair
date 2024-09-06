@@ -104,12 +104,12 @@ def learn(
             u_batch = torch.from_numpy(u_batch).to(device)
             i_batch = torch.from_numpy(i_batch).to(device)
             r_batch = torch.tensor(r_batch, dtype=torch.float).to(device)
-       
-            g_batch = torch.tensor(model.user_gender[u_batch]).to(device)
-            cat_batch = torch.tensor(model.item_cat[i_batch]).to(device)
+
+            # g_batch = torch.tensor(model.user_gender[u_batch]).to(device)
+            # cat_batch = torch.tensor(model.item_cat[i_batch]).to(device)
 
             preds = model(u_batch, i_batch)
-       
+
             # loss = criteria(preds, r_batch)
             # print(r_batch.shape)
             if _ == n_epochs:
@@ -118,10 +118,10 @@ def learn(
             loss = new_loss(
                 preds,
                 r_batch,
-                g_batch,
+                torch.tensor(model.user_gender).to(device),
                 u_batch,
                 i_batch,
-                model.item_cat,
+                torch.tensor(model.item_cat).to(device),
                 # cat_batch,
                 recommender,
                 top_k,
@@ -167,6 +167,13 @@ def learn(
             #         print(f"No gradient for {name}")
 
             optimizer.step()
+            recommender.u_factors_batch = model.u_factors.weight.squeeze()
+
+            recommender.i_factors_batch = model.i_factors.weight.squeeze()
+            recommender.u_biases_batch = model.u_biases.weight.squeeze()
+
+            recommender.i_biases_batch = model.i_biases.weight.squeeze()
+
             # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1)
             all_loss.append(loss.data.item())
             sum_loss += loss.data.item()

@@ -9,6 +9,7 @@ class GenderLossMF2(object):
         # pd_data = []
         # unique_users = np.unique(users.numpy())
         unique_users = torch.unique(users)
+        unique_users_gender = gender[unique_users]
         # print(unique_users)
         # print(unique_users.__len__())
         # print(torch.unique(users).__len__())
@@ -22,27 +23,17 @@ class GenderLossMF2(object):
         # reco_df["itemID"] = reco_df["itemID"].astype(int)
 
         # ________
-        recommendations = [
-            recommender.rank(u, k=top_k)[0][:top_k] for u in unique_users
-        ]
-        reco_df = pd.DataFrame(
-            {
-                "userID": np.repeat(unique_users, top_k),
-                "itemID": np.concatenate(recommendations),
-            }
-        )
-        # print(">>>>>>")
-        # print(recommender.score(1, 3))
-        # print(">>>>>>")
-        # ________
+        # recommender.differentiable_score(user_idx=1, item_idx=3)
 
-        users = pd.DataFrame(
-            {
-                "userID": users.numpy(),
-                "Gender": gender.numpy(),
-            }
+        recommendations = [
+            recommender.differentiable_rank(u, k=top_k)[0][:top_k] for u in unique_users
+        ]
+        recommendations_t = torch.stack(
+            [
+                recommender.differentiable_rank(u, k=top_k)[0][:top_k]
+                for u in unique_users
+            ]
         )
-        users = users.drop_duplicates()
 
         self.unique_genres = [
             "Action",
@@ -64,6 +55,36 @@ class GenderLossMF2(object):
             "Animation",
             "Drama",
         ]
+        reco_df = pd.DataFrame(
+            {
+                "userID": np.repeat(unique_users, top_k),
+                "itemID": np.concatenate(recommendations),
+            }
+        )
+        reco_tensor = torch.zeros(
+            (len(unique_users), len(self.unique_genres)), dtype=torch.float32
+        )
+        reco_movie_tensor = genres[recommendations_t]
+        sum_genres = reco_movie_tensor.sum(axis=-1, keepdim=True)
+        reco_movie_tensor_prop = reco_movie_tensor / sum_genres
+
+        print("--------------------")
+        print(reco_movie_tensor_prop[0][4])
+        print(reco_movie_tensor_prop[206][49])
+       
+        print("--------------------")
+        # print(">>>>>>")
+        # print(recommender.score(1, 3))
+        # print(">>>>>>")
+        # ________
+
+        users = pd.DataFrame(
+            {
+                "userID": users.numpy(),
+                "Gender": gender.numpy(),
+            }
+        )
+        users = users.drop_duplicates()
 
         movies = pd.DataFrame(genres, columns=self.unique_genres)
         # movies = pd.concat([movies, genre_df], axis=1)
