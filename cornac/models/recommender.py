@@ -538,20 +538,8 @@ class Recommender:
             if item_indices is None
             else torch.tensor(item_indices)
         )
-        item_indices_np = (
-            np.arange(self.num_items)
-            if item_indices is None
-            else np.asarray(item_indices)
-        )
+       
         item_scores = all_item_scores[item_indices]
-        # print(">?>?././././.")
-        # print(item_indices)
-        # print(item_indices_np)
-        # print(all_item_scores)
-        # print(item_scores)
-        # print(">?>?././././.")
-
-        item_scores_np = all_item_scores[item_indices_np]
         if k != -1:  # O(n + k log k), faster for small k which is usually the case
             # partitioned_idx = np.argpartition(item_scores_np, -k)
             partitioned_scores, partitioned_idx_ = torch.topk(

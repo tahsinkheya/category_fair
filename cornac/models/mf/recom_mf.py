@@ -321,11 +321,8 @@ class MF(Recommender, ANNMixin):
 
         if item_idx is None:
             known_item_scores = self.global_mean + self.i_biases
-            print(known_item_scores)
             if self.knows_user(user_idx):
                 known_item_scores += self.u_biases[user_idx]
-                print(known_item_scores)
-                print("///////")
                 # print(self.u_biases[user_idx].shape)
                 # print(self.u_factors[user_idx].shape)
                 # print(self.i_factors.shape)
@@ -365,42 +362,21 @@ class MF(Recommender, ANNMixin):
             raise ScoreException("Can't make score prediction for item %d" % item_idx)
 
         if item_idx is None:
-            # known_item_scores = self.global_mean + self.i_biases
             known_item_scores_2 = self.global_mean + self.i_biases_batch
-            # print(known_item_scores_2)
 
             if self.knows_user(user_idx):
-                # known_item_scores += self.u_biases[user_idx]
                 known_item_scores_2 += self.u_biases_batch[user_idx]
-                # print(known_item_scores_2)
-                # print("///////^-^//////")
-
-                # print(user_idx)
-                # print(known_item_scores_2.shape)
-                # print(self.u_biases_batch[user_idx].shape)
-                # print(self.u_factors_batch[user_idx].shape)
-                # print(self.i_factors_batch.shape)
-
                 known_item_scores_2 += torch.matmul(
                     self.u_factors_batch[user_idx], self.i_factors_batch.T
                 )
-
-                # fast_dot(self.u_factors[user_idx], self.i_factors, known_item_scores)
-
             return known_item_scores_2
         else:
-            # item_score = self.global_mean + self.i_biases[item_idx]
             item_score_2 = self.global_mean + self.i_biases_batch[item_idx]
-
             if self.knows_user(user_idx):
-                # item_score += self.u_biases[user_idx]
                 item_score_2 += self.u_biases_batch[user_idx]
-
-                # item_score += self.u_factors[user_idx].dot(self.i_factors[item_idx])
                 item_score_2 += torch.dot(
                     self.u_factors_batch[user_idx], self.i_factors_batch[item_idx]
                 )
-
             return item_score_2
 
     def get_vector_measure(self):
