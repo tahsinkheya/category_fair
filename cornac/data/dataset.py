@@ -18,7 +18,7 @@ import os
 import pickle
 import warnings
 from collections import Counter, OrderedDict, defaultdict
-
+import torch
 import numpy as np
 from scipy.sparse import csc_matrix, csr_matrix, dok_matrix
 
@@ -98,8 +98,7 @@ class Dataset(object):
 
         (_, _, r_values) = uir_tuple
         implict_r_values = np.where(np.asarray(r_values, dtype="float") > 3.5, 1.0, 0.0)
-        
-        
+
         self.num_ratings = len(r_values)
         self.max_rating = np.max(r_values)
         self.min_rating = np.min(r_values)
@@ -113,6 +112,7 @@ class Dataset(object):
         self.__chrono_user_data = None
         self.__chrono_item_data = None
         self.__csr_matrix = None
+        self.__coo_matrix = None
         self.__csc_matrix = None
         self.__dok_matrix = None
 
@@ -124,6 +124,7 @@ class Dataset(object):
             "__chrono_user_data",
             "__chrono_item_data",
             "__csr_matrix",
+            "__coo_matrix",
             "__csc_matrix",
             "__dok_matrix",
         ]
@@ -237,6 +238,11 @@ class Dataset(object):
         return self.csr_matrix
 
     @property
+    def c_matrix(self):
+        """The user-item interaction matrix in CSR sparse format"""
+        return self.coo_matrix
+
+    @property
     def csr_matrix(self):
         """The user-item interaction matrix in CSR sparse format"""
         if self.__csr_matrix is None:
@@ -246,6 +252,30 @@ class Dataset(object):
                 shape=(self.num_users, self.num_items),
             )
         return self.__csr_matrix
+
+    @property
+    def coo_matrix(self):
+        """The user-item interaction matrix in torch coo sparse format
+        torch.sparse_coo_tensor(indices, values, size=None, *, dtype=None, device=None, requires_grad=False, check_invariants=None, is_coalesced=None)
+        """
+        device = (
+            torch.device("cuda:0")
+            if (torch.cuda.is_available())
+            else torch.device("cpu")
+        )
+        if self.__coo_matrix is None:
+            (u_indices, i_indices, r_values) = self.uir_tuple
+            u_indices = torch.from_numpy(u_indices).to(device)
+            i_indices = torch.from_numpy(i_indices).to(device)
+            r_values = torch.from_numpy(r_values).to(device)
+            ui_indices = torch.stack([u_indices, i_indices])
+            self.__coo_matrix = torch.sparse_coo_tensor(
+                indices=ui_indices,
+                values=r_values,
+                size=(self.num_users, self.num_items),
+                requires_grad=True,
+            )
+        return self.__coo_matrix
 
     @property
     def csc_matrix(self):
@@ -543,7 +573,7 @@ class Dataset(object):
                 )
 
             yield batch_users, batch_items, batch_ratings
-            
+
     def uir_iter_implicit(self, batch_size=1, shuffle=False, binary=False, num_zeros=0):
         """Create an iterator over data yielding batch of users, items, and rating values
 
@@ -573,7 +603,7 @@ class Dataset(object):
             if binary:
                 batch_ratings = np.ones_like(batch_items)
             else:
-                batch_ratings = 1 if self.uir_tuple[2][batch_ids]>3.5 else 0
+                batch_ratings = 1 if self.uir_tuple[2][batch_ids] > 3.5 else 0
 
             if num_zeros > 0:
                 repeated_users = batch_users.repeat(num_zeros)

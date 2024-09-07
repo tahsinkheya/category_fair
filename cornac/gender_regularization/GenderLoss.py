@@ -1,36 +1,18 @@
-import pandas as pd
-import numpy as np
 import torch
 
 
-class GenderLoss(object):
+class GenderLossMF(object):
     def __init__(self, gender, users, genres, recommender, top_k):
-
         unique_users = torch.unique(users)
-        recommendations = [
-            recommender.rank(u, k=top_k)[0][:top_k] for u in unique_users
-        ]
-        # print("::::::")
-        # print(recommender.score(1, 3))
-        # print(recommender.score(2, 3))
-        # print(recommender.score(1, 4))
-        # print("::::::")
-
-        reco_df = pd.DataFrame(
-            {
-                "userID": np.repeat(unique_users, top_k),
-                "itemID": np.concatenate(recommendations),
-            }
+        unique_users_gender = gender[unique_users]
+        f = unique_users_gender == 1
+        m = unique_users_gender == 0
+        recommendations_t = torch.stack(
+            [
+                recommender.differentiable_rank(u, k=top_k)[0][:top_k]
+                for u in unique_users
+            ]
         )
-
-        users = pd.DataFrame(
-            {
-                "userID": users.numpy(),
-                "Gender": gender.numpy(),
-            }
-        )
-        users = users.drop_duplicates()
-
         self.unique_genres = [
             "Action",
             "Thriller",
@@ -51,29 +33,18 @@ class GenderLoss(object):
             "Animation",
             "Drama",
         ]
-
-        movies = pd.DataFrame(genres, columns=self.unique_genres)
-
-        movies["itemID"] = range(0, len(movies))
-
-        movies[self.unique_genres] = movies[self.unique_genres].div(
-            movies[self.unique_genres].sum(axis=1), axis=0
+        reco_movie_tensor = genres[recommendations_t]
+        sum_genres = reco_movie_tensor.sum(axis=-1, keepdim=True)
+        reco_movie_tensor_prop = torch.where(
+            sum_genres == 0, torch.tensor(0.0), reco_movie_tensor / sum_genres
         )
-        self.final_df = pd.merge(reco_df, movies, on="itemID", how="inner")
+        reco_movie_tensor_prop_mean = reco_movie_tensor_prop.mean(
+            dim=1
+        )  # genre dist per user
 
-        self.final_df = self.final_df.groupby("userID")[self.unique_genres].mean()
-
-        self.final_df = pd.merge(self.final_df, users, on="userID", how="left")
-
-        gender_genre_weights_r = self.final_df.groupby("Gender")[
-            self.unique_genres
-        ].mean()
-
-        self.gender_genre_weights = gender_genre_weights_r.sort_index()
+        self.male_reco_dist = reco_movie_tensor_prop_mean[m].mean(dim=0)
+        self.female_reco_dist = reco_movie_tensor_prop_mean[f].mean(dim=0)
 
     def compute(self):
-        uall = torch.tensor(self.gender_genre_weights.values)
-        diff = torch.abs(uall[0] - uall[1])
-        retVal = torch.sum(diff)
-
-        return retVal
+        retVal_2 = torch.sum(torch.abs(self.male_reco_dist - self.female_reco_dist))
+        return retVal_2

@@ -17,8 +17,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from tqdm.auto import trange
-from cornac.models.mf.GenderLossMF import GenderLossMF
-from cornac.models.mf.GenderLossMF2 import GenderLossMF2
 import numpy as np
 
 OPTIMIZER_DICT = {

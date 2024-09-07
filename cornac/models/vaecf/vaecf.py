@@ -18,7 +18,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from tqdm.auto import trange
-from cornac.gender_regularization.GenderLoss import GenderLoss
+from cornac.gender_regularization.GenderLoss import GenderLossMF
 
 from ...utils import estimate_batches
 
@@ -152,17 +152,17 @@ def learn(
             u_batch = u_batch.A
             u_batch = torch.tensor(u_batch, dtype=torch.float32, device=device)
             uid_batch = torch.from_numpy(u_ids).to(device)
-            g_batch = torch.tensor(user_gender[uid_batch]).to(device)
+            gender_values = torch.tensor(user_gender).to(device)
 
             # Reconstructed batch
             u_batch_, mu, logvar = vae(u_batch)
 
             vae_loss, batch_loss = vae.loss(u_batch, u_batch_, mu, logvar, beta)
             if alpha != 0:
-                gl = GenderLoss(
-                    gender=g_batch,
+                gl = GenderLossMF(
+                    gender=gender_values,
                     users=uid_batch,
-                    genres=item_cat,
+                    genres=torch.tensor(item_cat).to(device),
                     recommender=recommender,
                     top_k=top_k,
                 )
@@ -180,7 +180,9 @@ def learn(
             # print(
             #     f"gendr loss {alpha*gender_loss} vae_loss {vae_loss} loss {loss}"
             # )
-            # print(f"gender {gender_loss }  vae_loss {vae_loss/max(batch_loss)} loss {loss}")
+            print(":;;;;;")
+            print(batch_loss)
+            print(f"gender {gender_loss }  vae_loss {vae_loss} loss {loss}")
             optimizer.zero_grad()
 
             loss.backward()
