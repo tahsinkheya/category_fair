@@ -87,11 +87,10 @@ def learn(
     alpha=0,
 ):
     model = model.to(device)
-    criteria = nn.MSELoss(reduction="mean")
     optimizer = OPTIMIZER_DICT[optimizer](
         params=model.parameters(), lr=learning_rate, weight_decay=reg
     )
-    new_loss = GenderMseLoss(a=alpha, reduction="sum")
+    new_loss = GenderMseLoss(a=alpha, reduction="none")
     printLoss = False
     all_loss = []
     progress_bar = trange(1, n_epochs + 1, disable=not verbose)
@@ -105,15 +104,11 @@ def learn(
             i_batch = torch.from_numpy(i_batch).to(device)
             r_batch = torch.tensor(r_batch, dtype=torch.float).to(device)
 
-            # g_batch = torch.tensor(model.user_gender[u_batch]).to(device)
-            # cat_batch = torch.tensor(model.item_cat[i_batch]).to(device)
-
             preds = model(u_batch, i_batch)
 
             # loss = criteria(preds, r_batch)
             # print(r_batch.shape)
             if _ == n_epochs:
-                # print the max gloss and mseloss for normalization later
                 printLoss = True
             loss = new_loss(
                 preds,
@@ -129,43 +124,9 @@ def learn(
                 train_set.max_rating,
                 printLoss,
             )
-            # loss = new_loss(
-            #     preds, r_batch, g_batch, u_batch, i_batch, cat_batch, recommender, top_k
-            # )
-            # print(u_batch.requires_grad, r_batch.requires_grad, g_batch.requires_grad)
-
-            # loss.retain_grad()
-            # print(gender_loss.grad)
-            # print(loss.grad)
-            # print(mse_loss.grad)
-            # print(type(loss))
-            # print(type(mse_loss))
-            # print(mse_loss.requires_grad, gender_loss.requires_grad, diff.requires_grad)
-
-            # print(type(gender_loss))
-            # print(type(mse_loss))
-            # print(type(loss))
 
             optimizer.zero_grad()
-            # loss.retain_grad()
             loss.backward()
-
-            # # total_grad_norm = 0.0
-            # # for name, param in model.named_parameters():
-            # #     if param.grad is not None:
-            # #         grad_norm = param.grad.norm(2).item()
-            # #         total_grad_norm += grad_norm
-            # #         # Log the gradient norm for each parameter
-            # #         if batch_id % 10 == 0:
-            # #             print(
-            # #                 f"Epoch {_}, Batch {batch_id}, Grad Norm [{name}]: {grad_norm}"
-            # #             )
-            # for name, param in model.named_parameters():
-            #     if param.grad is not None:
-            #         print(f"Grad Norm [{name}]: {param.grad.norm()}")
-            #     else:
-            #         print(f"No gradient for {name}")
-
             optimizer.step()
             recommender.u_factors_batch = model.u_factors.weight.squeeze()
 
@@ -189,12 +150,6 @@ class GenderMseLoss(nn.MSELoss):
     def __init__(self, a, reduction):
         super().__init__(reduction=reduction)
         self.a = a
-        # self.max_mse_loss = -1
-        # self.max_gender_loss = -1
-        # self.min_mse_loss = 10000
-        # self.min_gender_loss = 10000
-        # self.max_mse_loss = 404.9754333496094
-        # self.max_gender_loss = 0.7370653866116046
 
     def forward(
         self,
@@ -211,28 +166,9 @@ class GenderMseLoss(nn.MSELoss):
         printLoss=False,
     ):
         mse_loss = super().forward(preds, r_batch)
-        # print(mse_loss)
         f = g_batch == 1
         m = g_batch == 0
         diff = torch.abs(r_batch - preds)
-
-        # equation 1 start____________________________
-        # avg_f = diff[f].mean()
-        # avg_m = diff[m].mean()
-        # gender_loss_1 = torch.abs(avg_f - avg_m)
-        # equation 1 end____________________________
-
-        # equation 2 start____________________________
-        # female = diff[f]
-        # male = diff[m]
-        # total_num_preds = r_batch.shape[0]
-        # female_acc_count = (female < 0.5).sum().item()
-        # male_acc_count = (male < 0.5).sum().item()
-
-        # gender_loss_2 = abs(
-        #     female_acc_count / total_num_preds - male_acc_count / total_num_preds
-        # )
-        # equation 2 end____________________________
 
         # equation 3 start____________________________
         gender_loss = 0
@@ -241,56 +177,28 @@ class GenderMseLoss(nn.MSELoss):
                 g_batch, u_batch, i_batch, diff, genres, recommender, top_k
             )
             gender_loss = glmf.compute()
-            # loss = self.a * (gender_loss / self.max_gender_loss) + (1 - self.a) * (
-            #     mse_loss / self.max_mse_loss
-            # )
 
             loss = (
-                self.a * gender_loss * (batch_size * max_rating**2)
-                + (1 - self.a) * mse_loss
+                self.a
+                * gender_loss
+                * (
+                    batch_size * max(mse_loss)
+                )  # scale up gender loss need to multipply with batchsize bcoz we are using reduction sum for the mseloss below
+                + (1 - self.a) * mse_loss.sum()  # total batch loss
             )
-
         else:
-            loss = mse_loss
+            loss = mse_loss.sum()
 
         # glmf = GenderLossMF(
         #         g_batch, u_batch, i_batch, diff, genres, recommender, top_k
         #     )
-        # loss = glmf.compute()
-        # loss.requires_grad = True
-
-        # print(f"{type(loss)} {type(mse_loss)} { type(gender_loss)}")
-        # print(mse_loss)
-
-        # equation 3 end____________________________
-
-        # need these for normalization____________
-        # if loss > self.max_gender_loss:
-        #     self.max_gender_loss = loss
-        # if mse_loss > self.max_mse_loss:
-        #     self.max_mse_loss = mse_loss
-        # if printLoss:
-        # print(f"mse_loss maximum {self.max_mse_loss}")
-        # print(f"gender maximum {self.max_gender_loss}")
-        # if gender_loss < self.min_gender_loss:
-        #     self.min_gender_loss = gender_loss
-        # if mse_loss < self.min_mse_loss:
-        #     self.min_mse_loss = mse_loss
-        # if printLoss:
-        #     print(f"mse_loss min {self.min_mse_loss}")
-        #     print(f"gender min {self.min_gender_loss}")
-        # need these for normalization____________
-
-        # print(f"gl{gender_loss*self.a} loss{loss} mseloss {mse_loss}")
-
-        # loss = self.a * (gender_loss / self.max_gender_loss) + (1 - self.a) * (
-        #     mse_loss / self.max_mse_loss
-        # )
 
         # print(
-        #     f"gl {gender_loss} {gender_loss * (batch_size * max_rating**2)} loss{loss} mseloss {mse_loss} {max_rating}"
+        #     f"{type(loss)} {type(mse_loss.sum())} { type(gender_loss * (batch_size * max(mse_loss)))}"
         # )
-        # print(gender_loss)
-        # print(self.max_gender_loss)
+        # print(
+        #     f"loss {loss}  mse_loss {mse_loss.sum()} gloss {gender_loss * (batch_size * max(mse_loss))} pure gloss {gender_loss}"
+        # )
+        # print(mse_loss)
 
         return loss
