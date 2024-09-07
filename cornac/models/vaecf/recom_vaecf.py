@@ -250,7 +250,6 @@ class VAECF(Recommender):
         import torch
 
         if item_idx is None:
-            x_u = self.r_mat[user_idx].copy()
             x_u_t = self.c_mat.to_dense()
             x_u_t = x_u_t[user_idx, :]
             x_u_t = torch.where(
@@ -259,34 +258,17 @@ class VAECF(Recommender):
                 torch.tensor(0.0, device=self.device),
             )
             x_u_t = x_u_t.unsqueeze(0)
-
-            x_u.data = np.ones(len(x_u.data))
-            x_u_new = torch.tensor(x_u.A, dtype=torch.float32, device=self.device)
-
-            # x_u_t_ = torch.ones_like(x_u_t)
-
-            z_u, _ = self.vae.encode(
-                torch.tensor(x_u.A, dtype=torch.float32, device=self.device)
-            )
             z_u_t, _ = self.vae.encode(x_u_t)
-
-            print("/////////")
-            print(self.vae.decode(z_u).data)
-            print(self.vae.decode(z_u).data.cpu().numpy().flatten())
-            print(self.vae.decode(z_u).data.shape)
-            # print(type(z_u_t))
-            # print(z_u_t)
-            # print(type(z_u))
-            # print(z_u)
-            # print(torch.equal(z_u_t, z_u))
-            print("/////////")
-            return self.vae.decode(z_u).data.cpu().numpy().flatten()
+            return self.vae.decode(z_u_t).flatten()
         else:
-            x_u = self.r_mat[user_idx].copy()
-            x_u.data = np.ones(len(x_u.data))
-            z_u, _ = self.vae.encode(
-                torch.tensor(x_u.A, dtype=torch.float32, device=self.device)
+            x_u_t = self.c_mat.to_dense()
+            x_u_t = x_u_t[user_idx, :]
+            x_u_t = torch.where(
+                x_u_t > 0,
+                torch.tensor(1.0, device=self.device),
+                torch.tensor(0.0, device=self.device),
             )
-            return (
-                self.vae.decode(z_u).data.cpu().numpy().flatten()[item_idx]
-            )  # Fix me I am not efficient
+            x_u_t = x_u_t.unsqueeze(0)
+            z_u_t, _ = self.vae.encode(x_u_t)
+            return self.vae.decode(z_u_t).flatten()[item_idx]
+            # Fix me I am not efficient

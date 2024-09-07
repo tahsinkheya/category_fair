@@ -173,16 +173,18 @@ def learn(
 
             else:
                 gender_loss = 0
-                loss = vae_loss 
+                loss = vae_loss
 
             # if _ == n_epochs:
             #     print(vae.max_loss)
             # print(
             #     f"gendr loss {alpha*gender_loss} vae_loss {vae_loss} loss {loss}"
             # )
-            print(":;;;;;")
-            print(batch_loss)
-            print(f"gender {gender_loss }  vae_loss {vae_loss} loss {loss}")
+            # print(":;;;;;")
+            # # print(batch_loss)
+            # print(
+            #     f"gender {gender_loss }  vae_loss {vae_loss} loss {loss} weighted gloss {alpha * gender_loss * max(batch_loss)}"
+            # )
             optimizer.zero_grad()
 
             loss.backward()

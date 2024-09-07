@@ -13,6 +13,10 @@ class GenderLossMF(object):
                 for u in unique_users
             ]
         )
+        # print(",,,;,;,;,;,;,;,;,;,;,")
+        # print(recommender.rank(19, k=10)[0][:10])
+        # print(recommender.differentiable_rank(19, k=10)[0][:10])
+        # print(",,,;,;,;,;,;,;,;,;,;,")
         self.unique_genres = [
             "Action",
             "Thriller",
