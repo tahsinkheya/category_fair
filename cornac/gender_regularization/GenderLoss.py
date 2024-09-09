@@ -14,9 +14,18 @@ class GenderLossMF(object):
             ]
         )
         # print(",,,;,;,;,;,;,;,;,;,;,")
-        # print(recommender.rank(19, k=10)[0][:10])
+        
         # print(recommender.differentiable_rank(19, k=10)[0][:10])
         # print(",,,;,;,;,;,;,;,;,;,;,")
+        
+        
+        # try:
+        #     print(",,,;,;,;,;,;,;,;,;,;,")
+        #     print(recommender.rank(19, k=10)[0][:10])
+        #     print(recommender.differentiable_rank(19, k=10)[0][:10])
+        #     print(",,,;,;,;,;,;,;,;,;,;,")
+        # except Exception as e:
+        #     print("heyo")
         self.unique_genres = [
             "Action",
             "Thriller",

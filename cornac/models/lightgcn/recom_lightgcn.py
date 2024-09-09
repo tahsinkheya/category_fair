@@ -17,7 +17,10 @@ from ..recommender import Recommender
 from ..recommender import ANNMixin, MEASURE_DOT
 from ...exception import ScoreException
 import numpy as np
-from cornac.models.lightgcn.GenderLossLGCN import GenderLossGCN
+
+# from cornac.models.lightgcn.GenderLossLGCN import GenderLossGCN
+from cornac.gender_regularization.GenderLoss import GenderLossMF
+
 import torch
 from tqdm.auto import tqdm, trange
 
@@ -193,7 +196,11 @@ class LightGCN(Recommender, ANNMixin):
                 ) = model(graph, batch_u, batch_i, batch_j)
                 self.U_in_batch = all_u_emb
                 self.V_in_batch = all_i_emb
+                # print("::::::")
+                # print(all_u_emb)
+                # print(all_i_emb)
 
+                # print("::::::")
                 batch_loss, batch_bpr_loss, batch_reg_loss, all_batch_loss = (
                     model.loss_fn(
                         u_g_embeddings, pos_i_g_embeddings, neg_i_g_embeddings
@@ -203,13 +210,11 @@ class LightGCN(Recommender, ANNMixin):
                 accum_loss += batch_loss.cpu().item() * len(batch_u)
                 u_batch = torch.from_numpy(batch_u).to(device)
 
-                g_batch = torch.tensor(self.user_features[u_batch]).to(device)
-
                 if self.alpha != 0:
-                    gl = GenderLossGCN(
-                        gender=g_batch,
+                    gl = GenderLossMF(
+                        gender=torch.tensor(self.user_features).to(device),
                         users=u_batch,
-                        genres=self.item_features,
+                        genres=torch.tensor(self.item_features).to(device),
                         recommender=self,
                         top_k=self.top_k,
                     )
@@ -348,7 +353,7 @@ class LightGCN(Recommender, ANNMixin):
         """
         return self.V
 
-    def score_edited(self, user_idx, item_idx=None):
+    def differentiable_score(self, user_idx, item_idx=None):
         """
         ADDED FOR PAPER EQUAL LIGHTS, FAIR CAMERA, DIVERSE ACTIONS!
 
@@ -376,87 +381,95 @@ class LightGCN(Recommender, ANNMixin):
                 raise ScoreException(
                     "Can't make score prediction for (user_id=%d)" % user_idx
                 )
-            known_item_scores = (
-                self.V_in_batch.detach()
-                .numpy()
-                .dot(self.U_in_batch.detach().numpy()[user_idx, :])
-            )
-            # known_item_scores = torch.matmul(
-            #     self.V_in_batch, self.U_in_batch[user_idx, :]
+            # known_item_scores = (
+            #     self.V_in_batch.detach()
+            #     .numpy()
+            #     .dot(self.U_in_batch.detach().numpy()[user_idx, :])
             # )
 
-            return known_item_scores
+            # print(":::::::")
+            # print(self.U_in_batch[19, :])
+            # print(":::::::")
+
+            known_item_scores_2 = torch.matmul(
+                self.V_in_batch, self.U_in_batch[user_idx, :]
+            )
+
+            return known_item_scores_2
         else:
             if not (self.knows_user(user_idx) and self.knows_item(item_idx)):
                 raise ScoreException(
                     "Can't make score prediction for (user_id=%d, item_id=%d)"
                     % (user_idx, item_idx)
                 )
-            return self.V_in_batch[item_idx, :].dot(self.U_in_batch[user_idx, :])
-
-    def rank_edited(self, user_idx, item_indices=None, k=-1, **kwargs):
-        """
-        ADDED FOR PAPER EQUAL LIGHTS, FAIR CAMERA, DIVERSE ACTIONS!
-        Rank all test items for a given user using the new score method
-
-        Parameters
-        ----------
-        user_idx: int, required
-            The index of the user for whom to perform item raking.
-
-        item_indices: 1d array, optional, default: None
-            A list of candidate item indices to be ranked by the user.
-            If `None`, list of ranked known item indices and their scores will be returned.
-
-        k: int, required
-            Cut-off length for recommendations, k=-1 will return ranked list of all items.
-            This is more important for ANN to know the limit to avoid exhaustive ranking.
-
-        Returns
-        -------
-        (ranked_items, item_scores): tuple
-            `ranked_items` contains item indices being ranked by their scores.
-            `item_scores` contains scores of items corresponding to index in `item_indices` input.
-
-        """
-        # obtain item scores from the model
-        try:
-            known_item_scores = self.score_edited(user_idx, **kwargs)
-        except ScoreException:
-            known_item_scores = np.ones(self.total_items) * self.default_score()
-
-        # check if the returned scores also cover unknown items
-        # if not, all unknown items will be given the MIN score
-
-        if len(known_item_scores) == self.total_items:
-            all_item_scores = known_item_scores
-        else:
-            all_item_scores = np.ones(self.total_items) * np.min(known_item_scores)
-            all_item_scores[: self.num_items] = known_item_scores
-
-        # rank items based on their scores
-        item_indices = (
-            np.arange(self.num_items)
-            if item_indices is None
-            else np.asarray(item_indices)
-        )
-        item_scores = all_item_scores[item_indices]
-
-        if k != -1:  # O(n + k log k), faster for small k which is usually the case
-            partitioned_idx = np.argpartition(item_scores, -k)
-            top_k_idx = partitioned_idx[-k:]
-            sorted_top_k_idx = top_k_idx[np.argsort(item_scores[top_k_idx])]
-            partitioned_idx[-k:] = sorted_top_k_idx
-            ranked_items = item_indices[partitioned_idx[::-1]]
-            # print(ranked_items)
-        else:  # O(n log n)
-            ranked_items = item_indices[item_scores.argsort()[::-1]]
-
-        return ranked_items, item_scores
+            return torch.dot(
+                self.V_in_batch[item_idx, :], (self.U_in_batch[user_idx, :])
+            )
 
 
-#  _, partitioned_idx = torch.topk(item_scores, k, largest=True, sorted=False)
-#             sorted_top_k_idx = partitioned_idx[torch.argsort(item_scores[partitioned_idx])]
+#     def rank_edited(self, user_idx, item_indices=None, k=-1, **kwargs):
+#         """
+#         ADDED FOR PAPER EQUAL LIGHTS, FAIR CAMERA, DIVERSE ACTIONS!
+#         Rank all test items for a given user using the new score method
 
+#         Parameters
+#         ----------
+#         user_idx: int, required
+#             The index of the user for whom to perform item raking.
+
+#         item_indices: 1d array, optional, default: None
+#             A list of candidate item indices to be ranked by the user.
+#             If `None`, list of ranked known item indices and their scores will be returned.
+
+#         k: int, required
+#             Cut-off length for recommendations, k=-1 will return ranked list of all items.
+#             This is more important for ANN to know the limit to avoid exhaustive ranking.
+
+#         Returns
+#         -------
+#         (ranked_items, item_scores): tuple
+#             `ranked_items` contains item indices being ranked by their scores.
+#             `item_scores` contains scores of items corresponding to index in `item_indices` input.
+
+#         """
+#         # obtain item scores from the model
+#         try:
+#             known_item_scores = self.score_edited(user_idx, **kwargs)
+#         except ScoreException:
+#             known_item_scores = np.ones(self.total_items) * self.default_score()
+
+#         # check if the returned scores also cover unknown items
+#         # if not, all unknown items will be given the MIN score
+
+#         if len(known_item_scores) == self.total_items:
+#             all_item_scores = known_item_scores
+#         else:
+#             all_item_scores = np.ones(self.total_items) * np.min(known_item_scores)
+#             all_item_scores[: self.num_items] = known_item_scores
+
+#         # rank items based on their scores
+#         item_indices = (
+#             np.arange(self.num_items)
+#             if item_indices is None
+#             else np.asarray(item_indices)
+#         )
+#         item_scores = all_item_scores[item_indices]
+
+#         if k != -1:  # O(n + k log k), faster for small k which is usually the case
+#             partitioned_idx = np.argpartition(item_scores, -k)
+#             top_k_idx = partitioned_idx[-k:]
+#             sorted_top_k_idx = top_k_idx[np.argsort(item_scores[top_k_idx])]
 #             partitioned_idx[-k:] = sorted_top_k_idx
-#             ranked_items = item_indices[partitioned_idx.flip(0)]
+#             ranked_items = item_indices[partitioned_idx[::-1]]
+#             # print(ranked_items)
+#         else:  # O(n log n)
+#             ranked_items = item_indices[item_scores.argsort()[::-1]]
+
+#         return ranked_items, item_scores
+
+
+# #  _, partitioned_idx = torch.topk(item_scores, k, largest=True, sorted=False)
+# #             sorted_top_k_idx = partitioned_idx[torch.argsort(item_scores[partitioned_idx])]
+
+# #             partitioned_idx[-k:] = sorted_top_k_idx
+# #             ranked_items = item_indices[partitioned_idx.flip(0)]

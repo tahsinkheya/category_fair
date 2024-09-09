@@ -178,6 +178,7 @@ def ranking_eval(
         test_user_indices, desc="Ranking", disable=not verbose, miniters=100
     ):
         test_pos_items = pos_items(test_mat.getrow(user_idx))
+
         if len(test_pos_items) == 0:
             continue
 
@@ -193,17 +194,22 @@ def ranking_eval(
         )
 
         # binary mask for ground-truth negative items, removing all positive items
+
         u_gt_neg_mask = np.ones(test_set.num_items, dtype="int")
         u_gt_neg_mask[test_pos_items + val_pos_items + train_pos_items] = 0
+     
 
         # filter items being considered for evaluation
         if exclude_unknowns:
             u_gt_pos_mask = u_gt_pos_mask[: train_set.num_items]
             u_gt_neg_mask = u_gt_neg_mask[: train_set.num_items]
-
+            
+       
+        # so this is bascially the items that are rated above threshold and want interacted with 
         item_indices = np.nonzero(u_gt_pos_mask + u_gt_neg_mask)[0]
         u_gt_pos_items = np.nonzero(u_gt_pos_mask)[0]
         u_gt_neg_items = np.nonzero(u_gt_neg_mask)[0]
+
 
         item_rank, item_scores = model.rank(
             user_idx=user_idx, item_indices=item_indices, k=max_k
