@@ -147,6 +147,8 @@ class UserKNN(Recommender):
         self.amplify = amplify
         self.seed = seed
         self.rng = get_rng(seed)
+        self.user_features = None
+        self.item_features = None
 
         if self.similarity not in SIMILARITIES:
             raise ValueError(
@@ -181,7 +183,10 @@ class UserKNN(Recommender):
         self : object
         """
         Recommender.fit(self, train_set, val_set)
-
+        gender_values = np.array(list(train_set.uid_gender_map.values()))
+        item_cats = np.array(list(train_set.iid_cat_map.values()))
+        self.user_features = gender_values
+        self.item_features = item_cats
         self.ui_mat = train_set.matrix.copy()
         self.mean_arr = np.zeros(self.ui_mat.shape[0])
         if self.min_rating != self.max_rating:  # explicit feedback
@@ -323,6 +328,8 @@ class ItemKNN(Recommender):
         self.amplify = amplify
         self.seed = seed
         self.rng = get_rng(seed)
+        self.user_features = None
+        self.item_features = None
 
         if self.similarity not in SIMILARITIES:
             raise ValueError(
@@ -357,7 +364,10 @@ class ItemKNN(Recommender):
         self : object
         """
         Recommender.fit(self, train_set, val_set)
-
+        gender_values = np.array(list(train_set.uid_gender_map.values()))
+        item_cats = np.array(list(train_set.iid_cat_map.values()))
+        self.user_features = gender_values
+        self.item_features = item_cats
         self.ui_mat = train_set.matrix.copy()
         self.mean_arr = np.zeros(self.ui_mat.shape[0])
         if self.min_rating != self.max_rating:  # explicit feedback

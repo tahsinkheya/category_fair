@@ -19,7 +19,7 @@ import pandas as pd
 import numpy as np
 from scipy.sparse import csr_matrix
 from tqdm.auto import tqdm
-
+import random
 from ..data import FeatureModality
 from ..data import TextModality, ReviewModality
 from ..data import ImageModality
@@ -87,6 +87,7 @@ def rating_eval(model, metrics, test_set, user_based=False, verbose=False):
 
     test_user_indices = set(u_indices)
     for mt in metrics:
+
         if user_based:  # averaging over users
             user_results.append(
                 {
@@ -197,19 +198,16 @@ def ranking_eval(
 
         u_gt_neg_mask = np.ones(test_set.num_items, dtype="int")
         u_gt_neg_mask[test_pos_items + val_pos_items + train_pos_items] = 0
-     
 
         # filter items being considered for evaluation
         if exclude_unknowns:
             u_gt_pos_mask = u_gt_pos_mask[: train_set.num_items]
             u_gt_neg_mask = u_gt_neg_mask[: train_set.num_items]
-            
-       
-        # so this is bascially the items that are rated above threshold and want interacted with 
+
+        # so this is bascially the items that are rated above threshold and want interacted with
         item_indices = np.nonzero(u_gt_pos_mask + u_gt_neg_mask)[0]
         u_gt_pos_items = np.nonzero(u_gt_pos_mask)[0]
         u_gt_neg_items = np.nonzero(u_gt_neg_mask)[0]
-
 
         item_rank, item_scores = model.rank(
             user_idx=user_idx, item_indices=item_indices, k=max_k
@@ -224,6 +222,14 @@ def ranking_eval(
                 item_indices=item_indices,
             )
             user_results[i][user_idx] = mt_score
+
+            # if mt.name == "Recall@50" :
+            #     for userid in test_user_indices:
+            #         print("......")
+            #         print(userid)
+            #         print(model.user_features[userid])
+            #         print(model.user_features)
+            #         print("......")
 
     # avg results of ranking metrics
     for i, mt in enumerate(metrics):
@@ -269,7 +275,7 @@ class BaseMethod:
         seed=None,
         exclude_unknowns=True,
         verbose=False,
-        **kwargs
+        **kwargs,
     ):
         self.data = data
         self.fmt = fmt
@@ -296,6 +302,7 @@ class BaseMethod:
         self.item_graph = kwargs.get("item_graph", None)
         self.sentiment = kwargs.get("sentiment", None)
         self.review_text = kwargs.get("review_text", None)
+        random.seed(seed)
 
         if verbose:
             print("rating_threshold = {:.1f}".format(rating_threshold))
@@ -751,6 +758,41 @@ class BaseMethod:
         for i, mt in enumerate(ranking_metrics):
             metric_avg_results[mt.name] = avg_results[i]
             metric_user_results[mt.name] = user_results[i]
+        # print(",,,,,,,,")
+        # genders = model.user_features
+
+        # female_res = []
+        # male_res = []
+        # female_iids = []
+        # male_iids = [62, 371, 114, 579, 368, 143, 47, 538, 769, 807, 460, 473, 942, 207, 180, 469, 806, 461, 339, 212, 1, 616, 940, 861, 534, 90, 8, 439, 638, 134, 53, 120, 187, 170, 25, 408, 609, 824, 681, 367, 669, 44, 426, 477, 749, 689, 275, 755, 813, 438, 14, 566, 737, 614, 774, 860, 698, 748, 596, 527, 734, 38, 237, 107, 699, 363, 221, 462, 920, 797, 554, 95, 650, 549, 823, 466, 19, 249, 115, 508, 16, 490, 305, 576, 761, 719, 75, 399, 710, 314, 781, 690, 232, 201, 933, 634, 535, 657, 54, 12, 178, 838, 253, 891, 353, 825, 376, 866, 598, 0, 144, 81, 859, 498, 828, 854, 613, 10, 766, 908, 840, 574, 35, 448, 852, 672, 39, 847, 587, 485, 30, 914, 909, 83, 189, 524, 316, 101, 70, 836, 428, 191, 890, 551, 518, 892, 844, 162, 215, 548, 611, 79, 181, 646, 796, 486, 639, 640, 425, 285, 559, 745, 17, 102, 361, 210, 912, 356, 355, 385, 89, 222, 345, 923, 378, 507, 240, 152, 636, 394, 849, 56, 726, 662, 349, 164, 901, 630, 208, 176, 266, 28, 863, 49, 129, 348, 131, 934, 635, 656, 775, 126, 799, 392, 155, 52, 418, 206, 51, 684, 384, 372, 87, 919, 575, 370, 88, 556, 331, 340, 510, 667, 550, 711, 172, 500, 590, 757, 404, 332, 821, 263, 149, 786, 663, 783, 881, 442, 4, 565, 558, 642, 715, 342, 853, 756, 409, 77, 480, 32, 236, 306, 855, 758, 280, 205, 235, 936, 547, 297, 588, 532, 125, 118, 251, 37, 276, 247, 604, 885, 910, 388]
+
+        #  for key, val in metric_user_results.items():
+
+        #     for k, v in val.items():
+        #         if genders[k] == 1:
+        #             female_iids.append(k)
+
+        # for k, v in metric_user_results.items():
+
+        #     for uid, m in v.items():
+        #         g = genders[uid]
+        #         if g == 1:  # female
+        #             female_res.append(m)
+        #             # female_iids.append(uid)
+        #         elif g == 0 and uid in male_iids:
+        #             male_res.append(m)
+        #             # male_iids.append(uid)
+
+        # print(male_iids)
+        # print(female_iids)
+        # print(male_iids.__len__())
+        # print(female_iids.__len__())
+        # print(male_res.__len__())
+        # print(female_res.__len__())
+        # # print()
+        # print(f"{sum(female_res) / len(female_res)} female")
+        # print(f"{sum(male_res) / len(male_res)} male")
+        # print(",,,,,,,,")
 
         return Result(model.name, metric_avg_results, metric_user_results)
 
@@ -851,7 +893,7 @@ class BaseMethod:
         exclude_unknowns=False,
         seed=None,
         verbose=False,
-        **kwargs
+        **kwargs,
     ):
         """Constructing evaluation method given data.
 
@@ -896,7 +938,7 @@ class BaseMethod:
             exclude_unknowns=exclude_unknowns,
             seed=seed,
             verbose=verbose,
-            **kwargs
+            **kwargs,
         )
 
         return method.build(
