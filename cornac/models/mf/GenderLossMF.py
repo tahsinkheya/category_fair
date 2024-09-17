@@ -2,7 +2,7 @@ import pandas as pd
 import torch
 
 
-class GenderLossMF(object):
+class GenderLossMFs(object):
     def __init__(self, gender, users, items, rating_diff, genres, recommender, top_k):
         self.df = pd.DataFrame(
             {
@@ -38,16 +38,14 @@ class GenderLossMF(object):
             self.df[self.unique_genres].sum(axis=1), axis=0
         )
 
-
         for g in self.unique_genres:
             self.df[g] = self.df["rating_error"] * self.df[g]
         # df = df.groupby("userID")[self.unique_genres].mean()
 
-        
         self.gender_genre_weights_r = self.df.groupby("Gender")[
             self.unique_genres
         ].mean()
-        
+
         self.gender_genre_weights_r = torch.tensor(
             self.gender_genre_weights_r.sort_index().to_numpy()
         )

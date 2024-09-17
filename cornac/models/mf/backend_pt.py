@@ -74,6 +74,7 @@ class MF(nn.Module):
 def learn(
     model,
     train_set,
+    val_set,
     recommender,
     top_k,
     n_epochs,
@@ -84,6 +85,7 @@ def learn(
     optimizer="sgd",
     device=torch.device("cpu"),
     alpha=0,
+    early_stopping="False",
 ):
     model = model.to(device)
     optimizer = OPTIMIZER_DICT[optimizer](
@@ -141,6 +143,12 @@ def learn(
 
             if batch_id % 10 == 0:
                 progress_bar.set_postfix(loss=(sum_loss / count))
+
+        if early_stopping and recommender.early_stop(
+            train_set, val_set, min_delta=0.001, patience=10
+        ):
+            break
+
         if printLoss:
             print(all_loss)
 

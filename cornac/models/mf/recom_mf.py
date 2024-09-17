@@ -58,7 +58,7 @@ class MF(Recommender, ANNMixin):
     use_bias: boolean, optional, default: True
         When True, user, item, and global biases are used.
 
-    early_stop: boolean, optional, default: False
+    early_stopping: boolean, optional, default: False
         When True, delta loss will be checked after each iteration to stop learning earlier.
 
     num_threads: int, optional, default: 0
@@ -102,7 +102,7 @@ class MF(Recommender, ANNMixin):
         lambda_reg=0.02,
         dropout=0.0,
         use_bias=True,
-        early_stop=False,
+        early_stopping=False,
         num_threads=0,
         trainable=True,
         verbose=False,
@@ -124,7 +124,7 @@ class MF(Recommender, ANNMixin):
         self.lambda_reg = lambda_reg
         self.dropout = dropout
         self.use_bias = use_bias
-        self.early_stop = early_stop
+        self.early_stopping = early_stopping
         self.seed = seed
         self.user_features = user_features
         self.item_features = item_features
@@ -235,7 +235,7 @@ class MF(Recommender, ANNMixin):
             self.max_iter,
             self.num_threads,
             self.use_bias,
-            self.early_stop,
+            self.early_stopping,
             self.verbose,
             self.user_features,
             self.item_features,
@@ -277,6 +277,7 @@ class MF(Recommender, ANNMixin):
         learn(
             model=model,
             train_set=train_set,
+            val_set=val_set,
             n_epochs=self.max_iter,
             batch_size=self.batch_size,
             learning_rate=self.learning_rate,
@@ -286,6 +287,7 @@ class MF(Recommender, ANNMixin):
             alpha=self.alpha,
             recommender=self,
             top_k=self.top_k,
+            early_stopping=self.early_stopping,
         )
         self.u_factors = model.u_factors.weight.detach().cpu().numpy()
         self.i_factors = model.i_factors.weight.detach().cpu().numpy()
@@ -418,3 +420,36 @@ class MF(Recommender, ANNMixin):
                 (item_vectors, self.i_biases.reshape((-1, 1))), axis=1
             )
         return item_vectors
+
+    def monitor_value(self, train_set, val_set):
+        """Calculating monitored value used for early stopping on validation set (`val_set`).
+        This function will be called by `early_stop()` function.
+
+        Parameters
+        ----------
+        train_set: :obj:`cornac.data.Dataset`, required
+            User-Item preference data as well as additional modalities.
+
+        val_set: :obj:`cornac.data.Dataset`, optional, default: None
+            User-Item preference data for model selection purposes (e.g., early stopping).
+
+        Returns
+        -------
+        res : float
+            Monitored value on validation set.
+            Return `None` if `val_set` is `None`.
+        """
+        if val_set is None:
+            return None
+
+        from ...metrics import HitRatio
+        from ...eval_methods import ranking_eval
+
+        hr = ranking_eval(
+            model=self,
+            metrics=[HitRatio(k=20)],
+            train_set=train_set,
+            test_set=val_set,
+        )[0][0]
+
+        return hr

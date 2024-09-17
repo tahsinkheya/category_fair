@@ -175,6 +175,7 @@ def ranking_eval(
         ]
 
     test_user_indices = set(test_set.uir_tuple[0])
+
     for user_idx in tqdm(
         test_user_indices, desc="Ranking", disable=not verbose, miniters=100
     ):
@@ -533,7 +534,7 @@ class BaseMethod:
             # x = x.astype({"uid": "int", "iid": "int", "rating": "int"})
             # r_global_uid_map = {v: k for k, v in self.global_uid_map.items()}
             # r_global_iid_map = {v: k for k, v in self.global_iid_map.items()}
-          
+
             # x["uid"] = x["uid"].map(r_global_uid_map)
             # x["iid"] = x["iid"].map(r_global_iid_map)
 
@@ -578,7 +579,7 @@ class BaseMethod:
             # x = x.astype({"uid": "int", "iid": "int", "rating": "int"})
             # r_global_uid_map = {v: k for k, v in self.global_uid_map.items()}
             # r_global_iid_map = {v: k for k, v in self.global_iid_map.items()}
-          
+
             # x["uid"] = x["uid"].map(r_global_uid_map)
             # x["iid"] = x["iid"].map(r_global_iid_map)
 
@@ -608,7 +609,7 @@ class BaseMethod:
             # x = x.astype({"uid": "int", "iid": "int", "rating": "int"})
             # r_global_uid_map = {v: k for k, v in self.global_uid_map.items()}
             # r_global_iid_map = {v: k for k, v in self.global_iid_map.items()}
-          
+
             # x["uid"] = x["uid"].map(r_global_uid_map)
             # x["iid"] = x["iid"].map(r_global_iid_map)
 

@@ -538,7 +538,7 @@ class Recommender:
             if item_indices is None
             else torch.tensor(item_indices)
         )
-       
+
         item_scores = all_item_scores[item_indices]
         if k != -1:  # O(n + k log k), faster for small k which is usually the case
             # partitioned_idx = np.argpartition(item_scores_np, -k)
@@ -712,6 +712,7 @@ class Recommender:
             return False
 
         if np.greater_equal(current_value - self.best_value, min_delta):
+            # print("here")
             self.best_value = current_value
             self.best_epoch = self.current_epoch
             self.wait = 0
