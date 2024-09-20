@@ -124,6 +124,7 @@ class VAE(nn.Module):
 def learn(
     vae,
     train_set,
+    val_set,
     n_epochs,
     batch_size,
     learn_rate,
@@ -135,6 +136,7 @@ def learn(
     item_cat=None,
     recommender=None,
     top_k=0,
+    early_stopping=False,
 ):
     optimizer = torch.optim.Adam(params=vae.parameters(), lr=learn_rate)
     num_steps = estimate_batches(train_set.num_users, batch_size)
@@ -195,6 +197,12 @@ def learn(
 
             if batch_id % 10 == 0:
                 progress_bar.set_postfix(loss=(sum_loss / count))
+
+        if early_stopping and recommender.early_stop(
+            train_set, val_set, min_delta=0.0001, patience=20
+        ):
+            break
+
     print(all_loss)
 
     return vae

@@ -85,7 +85,7 @@ def learn(
     optimizer="sgd",
     device=torch.device("cpu"),
     alpha=0,
-    early_stopping="False",
+    early_stopping=False,
 ):
     model = model.to(device)
     optimizer = OPTIMIZER_DICT[optimizer](
@@ -205,5 +205,6 @@ class GenderMseLoss(nn.MSELoss):
         #     f"loss {loss}  mse_loss {mse_loss.sum()} gloss {gender_loss * (batch_size * max(mse_loss))} pure gloss {gender_loss}"
         # )
         # print(mse_loss)
+        # print(gender_loss)
 
         return loss

@@ -88,6 +88,7 @@ class VAECF(Recommender):
         n_epochs=100,
         batch_size=100,
         learning_rate=0.001,
+        early_stopping=False,
         beta=1.0,
         trainable=True,
         verbose=False,
@@ -107,6 +108,7 @@ class VAECF(Recommender):
         self.beta = beta
         self.seed = seed
         self.use_gpu = use_gpu
+        self.early_stopping = early_stopping
 
         self.user_features = None
         self.item_features = None
@@ -160,6 +162,7 @@ class VAECF(Recommender):
             learn(
                 self.vae,
                 train_set,
+                val_set,
                 n_epochs=self.n_epochs,
                 batch_size=self.batch_size,
                 learn_rate=self.learning_rate,
@@ -171,6 +174,7 @@ class VAECF(Recommender):
                 item_cat=self.item_features,
                 recommender=self,
                 top_k=self.top_k,
+                early_stopping=self.early_stopping,
             )
 
         elif self.verbose:
@@ -272,3 +276,37 @@ class VAECF(Recommender):
             z_u_t, _ = self.vae.encode(x_u_t)
             return self.vae.decode(z_u_t).flatten()[item_idx]
             # Fix me I am not efficient
+            
+            
+    def monitor_value(self, train_set, val_set):
+        """Calculating monitored value used for early stopping on validation set (`val_set`).
+        This function will be called by `early_stop()` function.
+
+        Parameters
+        ----------
+        train_set: :obj:`cornac.data.Dataset`, required
+            User-Item preference data as well as additional modalities.
+
+        val_set: :obj:`cornac.data.Dataset`, optional, default: None
+            User-Item preference data for model selection purposes (e.g., early stopping).
+
+        Returns
+        -------
+        res : float
+            Monitored value on validation set.
+            Return `None` if `val_set` is `None`.
+        """
+        if val_set is None:
+            return None
+
+        from ...metrics import HitRatio
+        from ...eval_methods import ranking_eval
+
+        hr = ranking_eval(
+            model=self,
+            metrics=[HitRatio(k=20)],
+            train_set=train_set,
+            test_set=val_set,
+        )[0][0]
+
+        return hr

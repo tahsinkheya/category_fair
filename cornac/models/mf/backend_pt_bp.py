@@ -188,7 +188,7 @@ class GenderMseLossBeyonParity(nn.MSELoss):
             U_val = U_val + abs((E_g_yj - E_mg_yj) - (E_g_rj - E_mg_rj))
 
         if self.a != 0:
-            gender_loss = U_val / len(u_batch)
+            gender_loss = U_val / len(unique_items)
 
             loss = (
                 self.a  # a is 1

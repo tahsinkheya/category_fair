@@ -85,6 +85,77 @@ def rating_eval(model, metrics, test_set, user_based=False, verbose=False):
     gt_mat = test_set.csr_matrix
     pd_mat = csr_matrix((r_preds, (u_indices, i_indices)), shape=gt_mat.shape)
 
+    #############
+    # implementation of beyond parity U_val metric
+    unique_i_indices = np.unique(i_indices)
+    genders = model.user_features
+
+    U_val = 0
+    for item in unique_i_indices:
+        currnet_item_ind = i_indices == item
+        u_i_ind = u_indices[currnet_item_ind]
+        r_gt_i_ind = r_values[currnet_item_ind]
+        r_pred_i_ind = r_preds[currnet_item_ind]
+        item_genders = genders[u_i_ind]
+        u_male = item_genders == 0
+        u_female = item_genders == 1
+        # female avg pred score
+        E_g_yj = r_pred_i_ind[u_female].mean() if u_female.any() else 0
+        # male avg pred score
+        E_mg_yj = r_pred_i_ind[u_male].mean() if u_male.any() else 0
+        E_g_rj = r_gt_i_ind[u_female].mean() if u_female.any() else 0
+        E_mg_rj = r_gt_i_ind[u_male].mean() if u_male.any() else 0
+        U_val = U_val + abs((E_g_yj - E_mg_yj) - (E_g_rj - E_mg_rj))
+
+    print("::::::")
+    print(U_val / len(unique_i_indices))
+
+    #     ##$$$$$$$$
+    #     import numpy as np
+
+    # # Get unique item indices
+    # # unique_iids = np.unique(i_indices)
+
+    # # Initialize a list to store results
+    # # abs_diffs = []
+
+    # # Loop through each unique item id (iid)
+    # for iid in unique_iids:
+    #     # Get the indices where the item id matches this iid
+    #     item_mask = (i_indices == iid)
+
+    #     # Filter the users and their corresponding ratings (ground truth and predicted)
+    #     item_u_indices = u_indices[item_mask]    # User indices for this item
+    #     item_r_values = r_values[item_mask]      # Ground truth ratings for this item
+    #     item_r_preds = r_preds[item_mask]        # Predicted ratings for this item
+    #     item_genders = genders[item_mask]
+    #     # Genders of the users for this item
+
+    #     # Calculate the rating differences (r_values - r_preds) for this item
+    #     rating_diffs = item_r_values - item_r_preds
+
+    #     # Separate the differences by gender
+    #     male_mask = (item_genders == 1)
+    #     female_mask = (item_genders == 0)
+
+    #     male_diffs = rating_diffs[male_mask]     # Rating differences for male users
+    #     female_diffs = rating_diffs[female_mask] # Rating differences for female users
+
+    #     # Compute the average difference for male and female users (if they exist)
+    #     avg_male_diff = np.mean(male_diffs) if len(male_diffs) > 0 else np.nan
+    #     avg_female_diff = np.mean(female_diffs) if len(female_diffs) > 0 else np.nan
+
+    #     # Calculate the absolute difference between male and female average differences
+    #     if not np.isnan(avg_male_diff) and not np.isnan(avg_female_diff):
+    #         abs_diff = abs(avg_male_diff - avg_female_diff)
+    #         abs_diffs.append((iid, abs_diff))  # Store item id and absolute difference
+
+    # # Print or analyze the resulting absolute differences
+    # for iid, abs_diff in abs_diffs:
+    #     print(f"Item ID: {iid}, Absolute Difference: {abs_diff}")
+
+    #############
+
     test_user_indices = set(u_indices)
     for mt in metrics:
 
