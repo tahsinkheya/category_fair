@@ -74,6 +74,7 @@ class MF(nn.Module):
 def learn(
     model,
     train_set,
+    val_set,
     recommender,
     top_k,
     n_epochs,
@@ -83,14 +84,15 @@ def learn(
     verbose=True,
     optimizer="sgd",
     device=torch.device("cpu"),
-    alpha=0,
+    alpha=1,
+    early_stopping=False,
 ):
     model = model.to(device)
     criteria = nn.MSELoss(reduction="mean")
     optimizer = OPTIMIZER_DICT[optimizer](
         params=model.parameters(), lr=learning_rate, weight_decay=reg
     )
-    new_loss = GenderMseLossBeyonParity(a=alpha, reduction="sum")
+    new_loss = GenderMseLossBeyonParity(a=alpha, reduction="none")
     printLoss = False
     all_loss = []
     progress_bar = trange(1, n_epochs + 1, disable=not verbose)
@@ -139,6 +141,10 @@ def learn(
 
             if batch_id % 10 == 0:
                 progress_bar.set_postfix(loss=(sum_loss / count))
+        if early_stopping and recommender.early_stop(
+            train_set, val_set, min_delta=0.001, patience=10
+        ):
+            break
         if printLoss:
             print(all_loss)
 
@@ -191,18 +197,16 @@ class GenderMseLossBeyonParity(nn.MSELoss):
             gender_loss = U_val / len(unique_items)
 
             loss = (
-                self.a  # a is 1
+                self.a  #
                 * (gender_loss / (2 * (max_rating - min_rating)))  # normalize
-                * (
-                    batch_size * (max_rating - min_rating) ** 2
-                )  # scale up to mseloss's scale
-                + mse_loss
+                * (batch_size * max(mse_loss))  # scale up to mseloss's scale
+                + (1 - self.a) * mse_loss.sum()
             )
             # print(
-            #     f"loss {loss} mseloss{mse_loss} gend {  (gender_loss / (2 * max_rating)) * (batch_size * (max_rating - min_rating) ** 2) }"
+            #     f"loss {loss} mseloss{mse_loss.sum()} gend {   (gender_loss / (2 * (max_rating - min_rating)))* (batch_size * max(mse_loss))}"
             # )
 
         else:
-            loss = mse_loss
+            loss = mse_loss.sum()
 
         return loss
