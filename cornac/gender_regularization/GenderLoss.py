@@ -5,6 +5,7 @@ class GenderLossMF(object):
     def __init__(self, gender, users, genres, recommender, top_k):
         unique_users = torch.unique(users)
         unique_users_gender = gender[unique_users]
+
         f = unique_users_gender == 1
         m = unique_users_gender == 0
         recommendations_t = torch.stack(
@@ -14,11 +15,10 @@ class GenderLossMF(object):
             ]
         )
         # print(",,,;,;,;,;,;,;,;,;,;,")
-        
+
         # print(recommender.differentiable_rank(19, k=10)[0][:10])
         # print(",,,;,;,;,;,;,;,;,;,;,")
-        
-        
+
         # try:
         #     print(",,,;,;,;,;,;,;,;,;,;,")
         #     print(recommender.rank(19, k=10)[0][:10])

@@ -21,6 +21,8 @@ from ..recommender import Recommender
 from ...utils import get_rng
 from ...exception import ScoreException
 
+from cornac.gender_regularization.GenderLoss import GenderLossMF
+
 
 class NCFBase(Recommender):
     """Base class of NCF family.
@@ -80,6 +82,10 @@ class NCFBase(Recommender):
         early_stopping=None,
         trainable=True,
         verbose=True,
+        user_features=None,
+        item_features=None,
+        top_k=0,
+        alp=0,
         seed=None,
     ):
         super().__init__(name=name, trainable=trainable, verbose=verbose)
@@ -90,6 +96,10 @@ class NCFBase(Recommender):
         self.learner = learner
         self.backend = backend
         self.early_stopping = early_stopping
+        self.user_features = user_features
+        self.item_features = item_features
+        self.alp = alp
+        self.top_k = top_k
         self.seed = seed
         self.rng = get_rng(seed)
         self.ignored_attrs.extend(
@@ -123,6 +133,10 @@ class NCFBase(Recommender):
         -------
         self : object
         """
+        gender_values = np.array(list(train_set.uid_gender_map.values()))
+        item_cats = np.array(list(train_set.iid_cat_map.values()))
+        self.user_features = gender_values
+        self.item_features = item_cats
         Recommender.fit(self, train_set, val_set)
 
         if self.trainable:
@@ -219,11 +233,17 @@ class NCFBase(Recommender):
             weight_decay=self.reg,
         )
         criteria = nn.BCELoss()
+        # criteria1 = nn.BCELoss(reduction="sum")
+        criteria1 = nn.BCELoss(reduction="none")
+        all_loss = []
 
         loop = trange(self.num_epochs, disable=not self.verbose)
         for _ in loop:
             count = 0
             sum_loss = 0
+            gender_values = torch.tensor(self.user_features).to(device)
+            genre_values = torch.tensor(self.item_features).to(device)
+
             for batch_id, (batch_users, batch_items, batch_ratings) in enumerate(
                 train_set.uir_iter(
                     self.batch_size, shuffle=True, binary=True, num_zeros=self.num_neg
@@ -237,9 +257,39 @@ class NCFBase(Recommender):
 
                 optimizer.zero_grad()
                 outputs = self.model(batch_users, batch_items)
-                loss = criteria(outputs, batch_ratings)
+
+                if self.alp != 0:
+                    # calculate adn add gender loss
+                    bce_loss_none = criteria1(outputs, batch_ratings)
+                    g_loss = GenderLossMF(
+                        gender=gender_values,
+                        users=batch_users,
+                        genres=genre_values,
+                        recommender=self,
+                        top_k=self.top_k,
+                    )
+                    g_loss = g_loss.compute()
+                    bce_loss = criteria(outputs, batch_ratings)
+                    # print(self.alp)
+                    loss = (
+                        self.alp * g_loss * max(bce_loss_none)
+                        + (1 - self.alp) * bce_loss
+                    )
+                    # print(
+                    #     f"loss{loss} gloss{g_loss} n_gloss {g_loss * max(bce_loss_none)} bceloss {bce_loss} maxbc {max(bce_loss_none)}"
+                    # )
+
+                else:
+                    loss = criteria(outputs, batch_ratings)
+                    # print(loss)
+
+                # print(f"loss {loss}")
+                # print(f"loss1 {loss1}")
+                # print(f"mean loss {loss1/len(batch_ratings)}")
+                # print(f"loss2 {sum(loss)/len(batch_ratings)}")
                 loss.backward()
                 optimizer.step()
+                all_loss.append(loss.data.item())
 
                 count += len(batch_users)
                 sum_loss += len(batch_users) * loss.data.item()
@@ -248,9 +298,12 @@ class NCFBase(Recommender):
                     loop.set_postfix(loss=(sum_loss / count))
 
             if self.early_stopping is not None and self.early_stop(
-                train_set, val_set, **self.early_stopping
+                train_set, val_set, min_delta=0.001, patience=20
             ):
                 break
+
+            if _ == self.num_epochs - 1:
+                print(all_loss)
         loop.close()
 
     def _score_pt(self, user_idx, item_idx):
@@ -330,17 +383,18 @@ class NCFBase(Recommender):
         if val_set is None:
             return None
 
-        from ...metrics import NDCG
+        from ...metrics import HitRatio
         from ...eval_methods import ranking_eval
 
-        ndcg_100 = ranking_eval(
+        hr = ranking_eval(
             model=self,
-            metrics=[NDCG(k=100)],
+            metrics=[HitRatio(k=20)],
             train_set=train_set,
             test_set=val_set,
         )[0][0]
+        # print(f"hit ratio {hr}")
 
-        return ndcg_100
+        return hr
 
     def score(self, user_idx, item_idx=None):
         """Predict the scores/ratings of a user for an item.

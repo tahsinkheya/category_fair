@@ -128,6 +128,8 @@ class NeuMF(nn.Module):
         num_factors: int = 8,
         layers=(64, 32, 16, 8),
         act_fn="relu",
+        user_gender=None,
+        item_cat=None,
     ):
         super(NeuMF, self).__init__()
 
@@ -146,6 +148,8 @@ class NeuMF(nn.Module):
         self.mlp = MLP(
             num_users=num_users, num_items=num_items, layers=layers, act_fn=act_fn
         )
+        self.user_gender = user_gender
+        self.item_cat = item_cat
 
         nn.init.normal_(self.logit.weight, std=1e-2)
 

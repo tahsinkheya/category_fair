@@ -14,6 +14,7 @@
 # ============================================================================
 
 import numpy as np
+import torch
 
 from .recom_ncf_base import NCFBase
 from ...exception import ScoreException
@@ -104,6 +105,8 @@ class NeuMF(NCFBase):
         trainable=True,
         verbose=True,
         seed=None,
+        alp=0,
+        top_k=0,
     ):
         super().__init__(
             name=name,
@@ -117,12 +120,16 @@ class NeuMF(NCFBase):
             backend=backend,
             early_stopping=early_stopping,
             seed=seed,
+            alp=alp,
+            top_k=top_k,
         )
         self.num_factors = num_factors
         self.layers = layers
         self.act_fn = act_fn
         self.reg = reg
         self.pretrained = False
+        self.alp = alp
+        self.top_k = top_k
         self.ignored_attrs.extend(
             [
                 "gmf_user_id",
@@ -284,6 +291,8 @@ class NeuMF(NCFBase):
             num_items=self.num_items,
             layers=self.layers,
             act_fn=self.act_fn,
+            user_gender=self.user_features,
+            item_cat=self.item_features,
         )
         if self.pretrained:
             model.from_pretrained(
@@ -301,8 +310,54 @@ class NeuMF(NCFBase):
             else:
                 users = torch.tensor(user_idx).unsqueeze(0)
                 items = torch.tensor(item_idx).unsqueeze(0)
+
             gmf_users = torch.tensor(user_idx).unsqueeze(0).to(self.device)
             output = self.model(
                 users.to(self.device), items.to(self.device), gmf_users.to(self.device)
             )
+        # print("=" * 20)
+        # print(output.squeeze().cpu().numpy())
+        # print("=" * 20)
+
         return output.squeeze().cpu().numpy()
+
+    def differentiable_score(self, user_idx, item_idx=None):
+        """Predict the scores/ratings of a user for an item.
+        this is a special method for paper titled PAPER EQUAL LIGHTS, FAIR CAMERA, DIVERSE ACTIONS!
+        to make the funciton differentiable since we are using this for loss optimization
+
+
+        Parameters
+        ----------
+        user_idx: int, required
+            The index of the user for whom to perform score prediction.
+
+        item_idx: int, optional, default: None
+            The index of the item for which to perform score prediction.
+            If None, scores for all known items will be returned.
+
+        Returns
+        -------
+        res : A scalar or a Numpy array
+            Relative scores that the user gives to the item or to all known items
+
+        """
+        if item_idx is not None:
+            raise ScoreException("Can't make score prediction for item %d" % item_idx)
+        if item_idx is None:
+            users = torch.ones(self.num_items, dtype=torch.int64) * user_idx
+            items = torch.arange(self.num_items).to(self.device)
+        else:
+            users = torch.tensor([user_idx], dtype=torch.int64).to(self.device)
+            items = torch.tensor([item_idx], dtype=torch.int64).to(self.device)
+
+        gmf_users = torch.tensor([user_idx], dtype=torch.int64).to(self.device)
+        output = self.model(users, items, gmf_users)
+        # print("-" * 20)
+        # # print(output)
+        # print(output.squeeze().shape)
+        # print("-" * 20)
+
+        return output.squeeze()
+
+    # print()
