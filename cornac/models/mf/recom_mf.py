@@ -174,10 +174,18 @@ class MF(Recommender, ANNMixin):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.global_mean = self.global_mean if self.use_bias else 0.0
         self.global_mean_implicit = self.global_mean_implicit if self.use_bias else 0.0
-        self.u_factors_batch = torch.from_numpy(self.u_factors).to(device)
-        self.i_factors_batch = torch.from_numpy(self.i_factors).to(device)
-        self.u_biases_batch = torch.from_numpy(self.u_biases).to(device)
-        self.i_biases_batch = torch.from_numpy(self.i_biases).to(device)
+        self.u_factors_batch = (
+            torch.from_numpy(self.u_factors).to(device).requires_grad_(True)
+        )
+        self.i_factors_batch = (
+            torch.from_numpy(self.i_factors).to(device).requires_grad_(True)
+        )
+        self.u_biases_batch = (
+            torch.from_numpy(self.u_biases).to(device).requires_grad_(True)
+        )
+        self.i_biases_batch = (
+            torch.from_numpy(self.i_biases).to(device).requires_grad_(True)
+        )
 
     def fit(self, train_set, val_set=None):
         """Fit the model to observations.

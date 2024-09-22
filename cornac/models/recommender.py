@@ -131,6 +131,8 @@ class Recommender:
     def __init__(self, name, trainable=True, verbose=False):
         self.name = name
         self.trainable = trainable
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = device
         self.verbose = verbose
         self.is_fitted = False
 
@@ -524,22 +526,26 @@ class Recommender:
         try:
             known_item_scores = self.differentiable_score(user_idx, **kwargs)
         except ScoreException:
-            known_item_scores = torch.ones(self.total_items) * self.default_score()
+            known_item_scores = (
+                torch.ones(self.total_items, device=self.device) * self.default_score()
+            )
+
         if len(known_item_scores) == self.total_items:
             all_item_scores = known_item_scores
         else:
-            all_item_scores = torch.ones(self.total_items) * torch.min(
-                known_item_scores
-            )
+            all_item_scores = torch.ones(
+                self.total_items, device=self.device
+            ) * torch.min(known_item_scores)
             all_item_scores[: self.num_items] = known_item_scores
 
         item_indices = (
-            torch.arange(self.num_items)
+            torch.arange(self.num_items, device=self.device)
             if item_indices is None
             else torch.tensor(item_indices)
         )
 
         item_scores = all_item_scores[item_indices]
+
         if k != -1:  # O(n + k log k), faster for small k which is usually the case
             # partitioned_idx = np.argpartition(item_scores_np, -k)
             partitioned_scores, partitioned_idx_ = torch.topk(
@@ -548,8 +554,19 @@ class Recommender:
             sorted_top_k_idx = partitioned_idx_[
                 torch.argsort(item_scores[partitioned_idx_])
             ]
+            # partitioned_scores1, partitioned_idx1 = torch.topk(
+            #     item_scores, k, largest=True, sorted=True
+            # )
+            # ranked_items_2 = torch.gather(
+            #     item_indices, 0, partitioned_scores1.to(torch.int64)
+            # )
             # partitioned_idx[-k:] = sorted_top_k_idx
             ranked_items = item_indices[sorted_top_k_idx.flip(0)]
+            # print("--" * 20)
+            # # print(torch.argsort(item_scores[partitioned_idx_]).requires_grad)
+            # print(partitioned_idx1.requires_grad)
+            # # print(sum_genres.requires_grad)
+            # print("--" * 20)
 
         else:  # O(n log n)
             sorted_ind = torch.argsort(item_scores[partitioned_idx_], descending=True)

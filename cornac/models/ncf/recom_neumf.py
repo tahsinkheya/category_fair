@@ -345,7 +345,8 @@ class NeuMF(NCFBase):
         if item_idx is not None:
             raise ScoreException("Can't make score prediction for item %d" % item_idx)
         if item_idx is None:
-            users = torch.ones(self.num_items, dtype=torch.int64) * user_idx
+            users = torch.ones(self.num_items, dtype=torch.int64, device = self.device) * user_idx
+            
             items = torch.arange(self.num_items).to(self.device)
         else:
             users = torch.tensor([user_idx], dtype=torch.int64).to(self.device)

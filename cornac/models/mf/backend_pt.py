@@ -95,6 +95,13 @@ def learn(
     printLoss = False
     all_loss = []
     progress_bar = trange(1, n_epochs + 1, disable=not verbose)
+    genress = torch.tensor(model.item_cat, dtype=torch.float32, requires_grad=True).to(
+        device
+    )
+    genders = torch.tensor(
+        model.user_gender, dtype=torch.float32, requires_grad=True
+    ).to(device)
+
     for _ in progress_bar:
         sum_loss = 0.0
         count = 0
@@ -114,10 +121,10 @@ def learn(
             loss = new_loss(
                 preds,
                 r_batch,
-                torch.tensor(model.user_gender).to(device),
+                genders,
                 u_batch,
                 i_batch,
-                torch.tensor(model.item_cat).to(device),
+                genress,
                 # cat_batch,
                 recommender,
                 top_k,
@@ -182,15 +189,22 @@ class GenderMseLoss(nn.MSELoss):
         if self.a != 0:
             glmf = GenderLossMF(g_batch, u_batch, genres, recommender, top_k)
             gender_loss = glmf.compute()
+            gender_loss = torch.sigmoid(0.1 * (gender_loss - 0.5))
 
             loss = (
-                self.a
-                * gender_loss
-                * (
-                    batch_size * max(mse_loss)
-                )  # scale up gender loss need to multipply with batchsize bcoz we are using reduction sum for the mseloss below
-                + (1 - self.a) * mse_loss.sum()  # total batch loss
+                self.a * gender_loss * (batch_size * max(mse_loss))
+                + (1 - self.a) * mse_loss.sum()
             )
+            # gender_loss = torch.tensor(340.0, requires_grad=True)
+            # loss = self.a * gender_loss + mse_loss.sum()
+            # loss = (
+            #     self.a
+            #     * gender_loss
+            #     * (
+            #         batch_size * max(mse_loss)
+            #     )  # scale up gender loss need to multipply with batchsize bcoz we are using reduction sum for the mseloss below
+            #     + (1 - self.a) * mse_loss.sum()  # total batch loss
+            # )
         else:
             loss = mse_loss.sum()
 
@@ -204,6 +218,8 @@ class GenderMseLoss(nn.MSELoss):
         # print(
         #     f"loss {loss}  mse_loss {mse_loss.sum()} gloss {gender_loss * (batch_size * max(mse_loss))} pure gloss {gender_loss}"
         # )
+        # print(gender_loss.requires_grad)
+        # print(loss.requires_grad)
         # print(mse_loss)
         # print(gender_loss)
 
