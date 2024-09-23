@@ -273,6 +273,8 @@ class NCFBase(Recommender):
                         top_k=self.top_k,
                     )
                     g_loss = g_loss.compute()
+                    g_loss = torch.sigmoid(0.1 * (g_loss - 0.5))
+
                     bce_loss = criteria(outputs, batch_ratings)
                     # print(self.alp)
                     loss = (
@@ -280,7 +282,7 @@ class NCFBase(Recommender):
                         + (1 - self.alp) * bce_loss
                     )
                     # print(
-                    #     f"gloss {g_loss.requires_grad} Bce {bce_loss.requires_grad} loss {loss.requires_grad}"
+                    #     f"gloss {g_loss} Bce {bce_loss} loss {loss}"
                     # )
 
                     # print(
