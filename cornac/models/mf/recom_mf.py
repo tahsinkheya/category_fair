@@ -256,7 +256,7 @@ class MF(Recommender, ANNMixin):
         import torch
 
         if self.run_mode == "genre":
-            from .backend_pt import MF, learn
+            from .backend_pt_copy import MF, learn
         else:
             from .backend_pt_bp import MF, learn
 
