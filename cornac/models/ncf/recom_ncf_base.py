@@ -241,8 +241,12 @@ class NCFBase(Recommender):
         for _ in loop:
             count = 0
             sum_loss = 0
-            gender_values = torch.tensor(self.user_features).to(device)
-            genre_values = torch.tensor(self.item_features).to(device)
+            gender_values = torch.tensor(
+                self.user_features, dtype=torch.float32, requires_grad=True
+            ).to(device)
+            genre_values = torch.tensor(
+                self.item_features, dtype=torch.float32, requires_grad=True
+            ).to(device)
 
             for batch_id, (batch_users, batch_items, batch_ratings) in enumerate(
                 train_set.uir_iter(
@@ -275,6 +279,10 @@ class NCFBase(Recommender):
                         self.alp * g_loss * max(bce_loss_none)
                         + (1 - self.alp) * bce_loss
                     )
+                    # print(
+                    #     f"gloss {g_loss.requires_grad} Bce {bce_loss.requires_grad} loss {loss.requires_grad}"
+                    # )
+
                     # print(
                     #     f"loss{loss} gloss{g_loss} n_gloss {g_loss * max(bce_loss_none)} bceloss {bce_loss} maxbc {max(bce_loss_none)}"
                     # )
