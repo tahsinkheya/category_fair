@@ -356,6 +356,9 @@ def transform_data(
     else:
         batch_targets = np.zeros((len(bi_batch), total_items), dtype="uint8")
         for inc, basket_items in enumerate(bi_batch):
+            print("?"*20)
+            # print(ba)
+            print("?"*20)
             batch_targets[inc, basket_items[-1]] = 1
         batch_targets = torch.tensor(batch_targets, dtype=torch.uint8, device=device)
     batch_nodes = [
@@ -433,6 +436,9 @@ class BPRLoss(nn.Module):
             output: tensor
         """
         result = self.batch_bpr_loss(predict, truth)
+        print(":::::::")
+        print(result)
+        print(":::::::")
 
         return result
 
@@ -557,6 +563,10 @@ def learn(
         for inc, (_, _, bi_batch) in enumerate(
             train_set.ubi_iter(batch_size, shuffle=True)
         ):
+            print(">" * 10)
+            print(bi_batch)
+            print(">" * 10)
+
             (
                 g,
                 nodes_feature,
@@ -590,6 +600,9 @@ def learn(
             for inc, (_, _, bi_batch) in enumerate(
                 val_set.ubi_iter(batch_size, shuffle=False)
             ):
+                print(">" * 10)
+                print(bi_batch)
+                print(">" * 10)
                 (
                     g,
                     nodes_feature,

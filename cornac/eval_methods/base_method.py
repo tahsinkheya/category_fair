@@ -616,6 +616,11 @@ class BaseMethod:
             print("Max rating = {:.1f}".format(self.train_set.max_rating))
             print("Min rating = {:.1f}".format(self.train_set.min_rating))
             print("Global mean = {:.1f}".format(self.train_set.global_mean))
+            print(
+                "Global mean Imolicit= {:.1f}".format(
+                    self.train_set.global_mean_implicit
+                )
+            )
 
         self.test_set = Dataset.build(
             data=test_data,

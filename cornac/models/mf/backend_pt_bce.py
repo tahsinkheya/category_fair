@@ -12,12 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
+import itertools
 
 import torch
 import torch.nn as nn
 from tqdm.auto import trange
 from cornac.gender_regularization.GenderLoss import GenderLossMF
 import numpy as np
+import torch.nn.functional as F
+import random
 
 OPTIMIZER_DICT = {
     "sgd": torch.optim.SGD,
@@ -42,6 +45,7 @@ class MF(nn.Module):
         item_cat=None,
     ):
         super(MF, self).__init__()
+        random.seed(123)
 
         self.use_bias = use_bias
         self.global_mean = global_mean
@@ -53,6 +57,8 @@ class MF(nn.Module):
         self.u_factors = nn.Embedding(*u_factors.shape)
         self.i_factors = nn.Embedding(*i_factors.shape)
         self.u_factors.weight.data = torch.from_numpy(u_factors)
+        self.global_bias = torch.nn.Parameter(torch.tensor(0.3), requires_grad=True)
+
         self.i_factors.weight.data = torch.from_numpy(i_factors)
         if use_bias:
             self.u_biases = nn.Embedding(*u_biases.shape)
@@ -66,7 +72,10 @@ class MF(nn.Module):
 
         preds = (self.dropout(ues) * self.dropout(ies)).sum(dim=1, keepdim=True)
         if self.use_bias:
-            preds += self.u_biases(uids) + self.i_biases(iids) + self.global_mean
+            preds += self.u_biases(uids) + self.i_biases(iids) + self.global_bias
+
+        # print(self.global_mean_implicit)
+        # print("::::")
 
         return preds.squeeze()
 
@@ -91,7 +100,8 @@ def learn(
     optimizer = OPTIMIZER_DICT[optimizer](
         params=model.parameters(), lr=learning_rate, weight_decay=reg
     )
-    new_loss = GenderMseLoss(a=alpha, reduction="none")
+    new_loss = GenderMseLoss(a=alpha)
+
     printLoss = False
     all_loss = []
     progress_bar = trange(1, n_epochs + 1, disable=not verbose)
@@ -106,19 +116,19 @@ def learn(
         sum_loss = 0.0
         count = 0
         for batch_id, (u_batch, i_batch, r_batch) in enumerate(
-            train_set.uir_iter(batch_size, shuffle=True)
+            train_set.uir_iter(batch_size, shuffle=True, binary=True, num_zeros=1)
         ):
             u_batch = torch.from_numpy(u_batch).to(device)
             i_batch = torch.from_numpy(i_batch).to(device)
             r_batch = torch.tensor(r_batch, dtype=torch.float).to(device)
-            optimizer.zero_grad()
+
             preds = model(u_batch, i_batch)
 
             # loss = criteria(preds, r_batch)
             # print(r_batch.shape)
             if _ == n_epochs:
                 printLoss = True
-            loss = new_loss(
+            loss = new_loss.forward(
                 preds,
                 r_batch,
                 genders,
@@ -133,6 +143,7 @@ def learn(
                 printLoss,
             )
 
+            optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             recommender.u_factors_batch = model.u_factors.weight.squeeze()
@@ -151,17 +162,21 @@ def learn(
                 progress_bar.set_postfix(loss=(sum_loss / count))
 
         if early_stopping and recommender.early_stop(
-            train_set, val_set, min_delta=0.001, patience=20
+            train_set, val_set, min_delta=0.001, patience=5
         ):
+            print(all_loss)
             break
 
         if printLoss:
             print(all_loss)
 
 
-class GenderMseLoss(nn.MSELoss):
-    def __init__(self, a, reduction):
-        super().__init__(reduction=reduction)
+class GenderMseLoss:
+    def __init__(self, a):
+        # super().__init__(reduction=reduction)
+        self.bpr_loss = BPR_loss_edit()
+        self.xcriteria = nn.BCELoss()
+
         self.a = a
 
     def forward(
@@ -178,34 +193,45 @@ class GenderMseLoss(nn.MSELoss):
         max_rating,
         printLoss=False,
     ):
-        mse_loss = super().forward(preds, r_batch)
-        f = g_batch == 1
-        m = g_batch == 0
-        diff = torch.abs(r_batch - preds)
+
+        # f = g_batch == 1
+        # m = g_batch == 0
+        # diff = torch.abs(r_batch - preds)
 
         # equation 3 start____________________________
         gender_loss = 0
+        # bpr = self.bpr_loss.compute(pred=preds, ground_truth=r_batch, u_batch=u_batch)
+        # bpr = self.bpr_loss.compute_bpr_loss(preds, r_batch, u_batch)
+
+        bce_loss = self.xcriteria(preds, r_batch)
+        # print(":" * 10)
+        # print(bce_loss * batch_size*2)
+        # print(bce_loss.sum())
+        # # print(r_batch)
+        # print(":" * 10)
+
+        # print(":" * 10)
+        # print(x.sum())
+        # print(x.shape)
+        # print(bpr.sum())
+        # print(bpr.shape)
+        # print(":" * 10)
+        # print(self.bpr_loss.batch_bpr_loss(preds, r_batch))
+
         if self.a != 0:
             glmf = GenderLossMF(g_batch, u_batch, genres, recommender, top_k)
             gender_loss = glmf.compute()
             gender_loss = torch.sigmoid(0.1 * (gender_loss - 0.5))
-
             loss = (
-                self.a * gender_loss * (batch_size * max(mse_loss))
-                + (1 - self.a) * mse_loss.sum()
+                self.a * gender_loss * (batch_size * max(bce_loss))
+                + (1 - self.a) * bce_loss.sum()
             )
-            # gender_loss = torch.tensor(340.0, requires_grad=True)
-            # loss = self.a * gender_loss + mse_loss.sum()
-            # loss = (
-            #     self.a
-            #     * gender_loss
-            #     * (
-            #         batch_size * max(mse_loss)
-            #     )  # scale up gender loss need to multipply with batchsize bcoz we are using reduction sum for the mseloss below
-            #     + (1 - self.a) * mse_loss.sum()  # total batch loss
-            # )
+            print(
+                f"bpr loss {bce_loss.sum()} max(bpr) {max(bce_loss)*batch_size} gloss={gender_loss} loss ={loss}"
+            )
+
         else:
-            loss = mse_loss.sum()
+            loss = bce_loss * 2 * batch_size
 
         # glmf = GenderLossMF(
         #         g_batch, u_batch, i_batch, diff, genres, recommender, top_k
@@ -214,12 +240,109 @@ class GenderMseLoss(nn.MSELoss):
         # print(
         #     f"{type(loss)} {type(mse_loss.sum())} { type(gender_loss * (batch_size * max(mse_loss)))}"
         # )
-        print(
-            f"loss {loss}  mse_loss {mse_loss.sum()} gloss {gender_loss * (batch_size * max(mse_loss))} pure gloss {gender_loss}"
-        )
+        # print(
+        #     f"loss {loss}  bpr_loss {bpr.sum()} gloss {gender_loss * (batch_size * max(bpr))} pure gloss {gender_loss}"
+        # )
         # print(gender_loss.requires_grad)
         # print(loss.requires_grad)
         # print(mse_loss)
         # print(gender_loss)
 
         return loss
+
+
+class BPR_loss_edit:
+    def __init__(self):
+        # super().__init__(reduction=reduction)
+        self.name = "BPRLOSS"
+
+    def bpr_loss(
+        users_emb_final,
+        users_emb_0,
+        pos_items_emb_final,
+        pos_items_emb_0,
+        neg_items_emb_final,
+        neg_items_emb_0,
+        lambda_val,
+    ):
+
+        reg_loss = lambda_val * (
+            users_emb_0.norm(2).pow(2)
+            + pos_items_emb_0.norm(2).pow(2)
+            + neg_items_emb_0.norm(2).pow(2)
+        )
+
+        pos_scores = torch.mul(users_emb_final, pos_items_emb_final)
+        pos_scores = torch.sum(pos_scores, dim=-1)
+
+        neg_scores = torch.mul(users_emb_final, neg_items_emb_final)
+        neg_scores = torch.sum(neg_scores, dim=-1)
+
+        loss = (
+            -torch.mean(torch.nn.functional.softplus(pos_scores - neg_scores))
+            + reg_loss
+        )
+
+        return loss
+
+    def compute(self, pred, ground_truth, u_batch):
+
+        self.pred = pred
+        self.ground_truth = ground_truth
+        pos_item = ground_truth == 1
+        neg_item = ground_truth == 0
+        pos = pred[pos_item]
+        neg = pred[neg_item]
+
+        score_diff = pos - neg
+        fl = -score_diff.sigmoid().log()
+
+        return fl
+
+    def compute_bpr_loss(self, pred, gt, uid):
+        bpr_list = []
+        bpr_user_list = []
+        unique_users = torch.unique(uid)  # Get unique users
+
+        for user in unique_users:
+            bp_u = 0
+            user_pos_scores = pred[(uid == user) & (gt == 1)]
+            user_neg_scores = pred[(uid == user) & (gt == 0)]
+            for pos_score in user_pos_scores:
+                for neg_score in user_neg_scores:
+                    score_diff = pos_score - neg_score
+                    bploss = -score_diff.sigmoid().log()
+                    bpr_list.append(bploss)
+                    bp_u += bploss
+            bpr_user_list.append(bp_u)
+        # print(">" * 8)
+        # print(bpr_user_list)
+        # print(len(unique_users))
+        # print(len(bpr_user_list))
+        # print(torch.sum(torch.stack(bpr_user_list)))
+        bpr_loss = torch.stack(bpr_list)
+        return bpr_loss
+
+    # # Data
+    # uid = [1, 2, 3, 1, 2, 3, 1, 1]
+    # gt = [1, 1, 1, 0, 0, 0, 1, 0]
+    # pred = [0.3, 0.4, 0.2, 0, 0.33, 0.2, 0.1, 0]
+
+    # # Calculate BPR Loss
+    # bpr_loss = compute_bpr_loss(uid, gt, pred)
+    # print("BPR Loss:", bpr_loss.item())
+
+    # loss = -(pos - neg).sigmoid().log().sum()
+
+    #         items_total = truth.shape[1]
+    # nll = 0
+    # for user, predictUser in zip(truth, predict):
+    #     pos_idx = user.clone().detach()
+    #     preUser = predictUser[pos_idx]
+    #     non_zero_list = list(itertools.chain.from_iterable(torch.nonzero(user)))
+    #     random_list = list(set(range(0, items_total)) - set(non_zero_list))
+    #     random.shuffle(random_list)
+    #     neg_idx = torch.tensor(random_list[: len(preUser)])
+    #     score = preUser - predictUser[neg_idx]
+    #     nll += -torch.mean(torch.nn.LogSigmoid()(score))
+    # return nll

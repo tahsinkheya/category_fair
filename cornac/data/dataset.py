@@ -97,7 +97,7 @@ class Dataset(object):
         self.rng = get_rng(seed)
 
         (_, _, r_values) = uir_tuple
-        implict_r_values = np.where(np.asarray(r_values, dtype="float") > 3.5, 1.0, 0.0)
+        implict_r_values = np.where(np.asarray(r_values, dtype="float") > 0, 1.0, 0.0)
 
         self.num_ratings = len(r_values)
         self.max_rating = np.max(r_values)
@@ -814,6 +814,8 @@ class BasketDataset(Dataset):
             uir_tuple=uir_tuple,
             timestamps=timestamps,
             seed=seed,
+            uid_gender_map=None,
+            iid_cat_map=None,
         )
         self.num_baskets = num_baskets
         self.bid_map = bid_map

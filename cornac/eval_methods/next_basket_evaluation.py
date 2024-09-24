@@ -289,7 +289,7 @@ class NextBasketEvaluation(RatioSplit):
 
         self.build(train_data=train_data, test_data=test_data, val_data=val_data)
 
-    def _build_datasets(self, train_data, test_data, val_data=None):
+    def _build_datasets(self, train_data, test_data, val_data=None, user_features=None, item_features=None):
         self.train_set = BasketDataset.build(
             data=train_data,
             fmt=self.fmt,

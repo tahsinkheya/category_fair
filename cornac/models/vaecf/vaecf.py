@@ -150,6 +150,9 @@ def learn(
         gender_values = torch.tensor(
             user_gender, requires_grad=True, dtype=torch.float32
         ).to(device)
+        genress = torch.tensor(item_cat, dtype=torch.float32, requires_grad=True).to(
+        device
+    )
 
         for batch_id, u_ids in enumerate(
             train_set.user_iter(batch_size, shuffle=False)
@@ -165,20 +168,21 @@ def learn(
 
             vae_loss, batch_loss = vae.loss(u_batch, u_batch_, mu, logvar, beta)
             if alpha != 0:
-                # gl = GenderLossMF(
-                #     gender=gender_values,
-                #     users=uid_batch,
-                #     genres=torch.tensor(
-                #         item_cat, requires_grad=True, dtype=torch.float32
-                #     ).to(device),
-                #     recommender=recommender,
-                #     top_k=top_k,
-                # )
-                # gender_loss = gl.compute()
-                gender_loss = torch.tensor(0.5, requires_grad=True)
+                gl = GenderLossMF(
+                    gender=gender_values,
+                    users=uid_batch,
+                    genres=genress,
+                    recommender=recommender,
+                    top_k=top_k,
+                )
+                gender_loss = gl.compute()
+                # gender_loss = torch.tensor(0.5, requires_grad=True)
+                gender_loss = torch.sigmoid(0.1 * (gender_loss - 0.5))
                 
-                # loss = alpha * gender_loss * max(batch_loss) + (1 - alpha) * vae_loss
-                loss = alpha * gender_loss + vae_loss
+                loss = alpha * gender_loss * max(batch_loss) + (1 - alpha) * vae_loss
+                
+                # print(f"loss {loss} gende loss {gender_loss} vaeloss {vae_loss} ")
+                # loss = alpha * gender_loss + vae_loss
                 
                 # loss = alpha * gender_loss * 10000 + (1-alpha) * vae_loss
                 # loss = alpha * gender_loss + vae_loss
