@@ -83,7 +83,8 @@ def learn(
     reg=1e-5,
     verbose=True,
     optimizer="sgd",
-    device=torch.device("cpu"),
+    device= torch.device("cuda" if torch.cuda.is_available() else "cpu")
+,
     alpha=0,
     early_stopping=False,
 ):

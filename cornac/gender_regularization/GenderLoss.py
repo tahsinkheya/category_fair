@@ -3,13 +3,15 @@ import torch
 
 class GenderLossMF(object):
     def __init__(self, gender, users, genres, recommender, top_k):
-        unique_users = torch.unique(users)
+        device= torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        
+        unique_users = torch.unique(users).to(device)
         # print(gender)
 
-        gender_mask = torch.zeros_like(gender, dtype=torch.bool)
+        gender_mask = torch.zeros_like(gender, dtype=torch.bool, device=device)
         unique_users_gender = gender[unique_users]
         gender_mask[unique_users] = True
-        unique_users_gender2 = gender[gender_mask]
+        # unique_users_gender2 = gender[gender_mask]
         # print(unique_users_gender.requires_grad)
         # print(unique_users_gender2.requires_grad)
 
@@ -20,26 +22,8 @@ class GenderLossMF(object):
                 recommender.differentiable_rank(u, k=top_k)[0][:top_k]
                 for u in unique_users
             ]
-        )
-        # print(")" * 10)
-        # print(genres.requires_grad)
-        # print(")" * 10)
-        # print("--" * 20)
-        # print(recommendations_t.requires_grad)
-        # print("--" * 20)
-
-        # print(",,,;,;,;,;,;,;,;,;,;,")
-
-        # print(recommender.differentiable_rank(19, k=10)[0][:10])
-        # print(",,,;,;,;,;,;,;,;,;,;,")
-
-        # try:
-        #     print(",,,;,;,;,;,;,;,;,;,;,")
-        #     print(recommender.rank(19, k=10)[0][:10])
-        #     print(recommender.differentiable_rank(19, k=10)[0][:10])
-        #     print(",,,;,;,;,;,;,;,;,;,;,")
-        # except Exception as e:
-        #     print("heyo")
+        ).to(device)
+     
         self.unique_genres = [
             "Action",
             "Thriller",
@@ -60,17 +44,17 @@ class GenderLossMF(object):
             "Animation",
             "Drama",
         ]
-        reco_movie_tensor = genres[recommendations_t]
+        reco_movie_tensor = genres[recommendations_t].to(device)
         # print("-" * 20)
         # print(reco_movie_tensor.requires_grad)
         # print("-" * 20)
-        sum_genres = reco_movie_tensor.sum(axis=-1, keepdim=True)
+        sum_genres = reco_movie_tensor.sum(axis=-1, keepdim=True).to(device)
         reco_movie_tensor_prop = torch.where(
             sum_genres == 0, torch.tensor(0.0), reco_movie_tensor / sum_genres
-        )
+        ).to(device)
         reco_movie_tensor_prop_mean = reco_movie_tensor_prop.mean(
             dim=1
-        )  # genre dist per user
+        ).to(device)  # genre dist per user
 
         self.male_reco_dist = reco_movie_tensor_prop_mean[m].mean(dim=0)
         self.female_reco_dist = reco_movie_tensor_prop_mean[f].mean(dim=0)
