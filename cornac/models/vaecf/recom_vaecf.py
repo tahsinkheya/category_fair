@@ -276,8 +276,7 @@ class VAECF(Recommender):
             z_u_t, _ = self.vae.encode(x_u_t)
             return self.vae.decode(z_u_t).flatten()[item_idx]
             # Fix me I am not efficient
-            
-            
+
     def monitor_value(self, train_set, val_set):
         """Calculating monitored value used for early stopping on validation set (`val_set`).
         This function will be called by `early_stop()` function.
@@ -299,14 +298,14 @@ class VAECF(Recommender):
         if val_set is None:
             return None
 
-        from ...metrics import HitRatio
+        from ...metrics import Recall
         from ...eval_methods import ranking_eval
 
-        hr = ranking_eval(
+        recall_20 = ranking_eval(
             model=self,
-            metrics=[HitRatio(k=20)],
+            metrics=[Recall(k=20)],
             train_set=train_set,
             test_set=val_set,
         )[0][0]
 
-        return hr
+        return recall_20

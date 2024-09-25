@@ -256,9 +256,9 @@ class MF(Recommender, ANNMixin):
         import torch
 
         if self.run_mode == "genre":
-            from .backend_pt_copy import MF, learn
+            from .backend_pt import MF, learn
         else:
-            from .backend_pt_bp import MF, learn
+            from .backend_pt_copy_bp import MF, learn
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.device = device
@@ -450,14 +450,14 @@ class MF(Recommender, ANNMixin):
         if val_set is None:
             return None
 
-        from ...metrics import HitRatio
+        from ...metrics import NDCG
         from ...eval_methods import ranking_eval
 
-        hr = ranking_eval(
+        nd = ranking_eval(
             model=self,
-            metrics=[HitRatio(k=20)],
+            metrics=[NDCG(k=20)],
             train_set=train_set,
             test_set=val_set,
         )[0][0]
 
-        return hr
+        return nd

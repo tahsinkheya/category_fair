@@ -95,12 +95,16 @@ def learn(
     printLoss = False
     all_loss = []
     progress_bar = trange(1, n_epochs + 1, disable=not verbose)
-    genress = torch.tensor(model.item_cat, dtype=torch.float32, requires_grad=True).to(
-        device
-    )
-    genders = torch.tensor(
-        model.user_gender, dtype=torch.float32, requires_grad=True
-    ).to(device)
+    if alpha != 0:
+        genress = torch.tensor(
+            model.item_cat, dtype=torch.float32, requires_grad=True
+        ).to(device)
+        genders = torch.tensor(
+            model.user_gender, dtype=torch.float32, requires_grad=True
+        ).to(device)
+    else:
+        genress = None
+        genders = None
 
     for _ in progress_bar:
         sum_loss = 0.0
@@ -151,8 +155,9 @@ def learn(
                 progress_bar.set_postfix(loss=(sum_loss / count))
 
         if early_stopping and recommender.early_stop(
-            train_set, val_set, min_delta=0.001, patience=20
+            train_set, val_set, min_delta=0.0005, patience=10
         ):
+            print(all_loss)
             break
 
         if printLoss:
@@ -214,9 +219,9 @@ class GenderMseLoss(nn.MSELoss):
         # print(
         #     f"{type(loss)} {type(mse_loss.sum())} { type(gender_loss * (batch_size * max(mse_loss)))}"
         # )
-        print(
-            f"loss {loss}  mse_loss {mse_loss.sum()} gloss {gender_loss * (batch_size * max(mse_loss))} pure gloss {gender_loss}"
-        )
+        # print(
+        #     f"loss {loss}  mse_loss {mse_loss.sum()} gloss {gender_loss * (batch_size * max(mse_loss))} pure gloss {gender_loss}"
+        # )
         # print(gender_loss.requires_grad)
         # print(loss.requires_grad)
         # print(mse_loss)
