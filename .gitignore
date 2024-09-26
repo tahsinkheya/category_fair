@@ -77,3 +77,9 @@ reco_matrix_mapped_items.npy
 reco_matrix_mapped_scores.npy
 reco_items_scores_all.npy
 data_vis_into.ipynb
+
+
+test_cornac.py
+test_cornac_neumf.py
+cornac-run2.sh
+cornac-run.sh
