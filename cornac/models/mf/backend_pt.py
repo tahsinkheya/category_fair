@@ -16,9 +16,11 @@
 import torch
 import torch.nn as nn
 from tqdm.auto import trange
+from datetime import datetime
+
 from cornac.gender_regularization.GenderLoss import GenderLossMF
 import numpy as np
-
+import os
 OPTIMIZER_DICT = {
     "sgd": torch.optim.SGD,
     "adam": torch.optim.Adam,
@@ -83,8 +85,8 @@ def learn(
     reg=1e-5,
     verbose=True,
     optimizer="sgd",
-    device= torch.device("cuda" if torch.cuda.is_available() else "cpu")
-,
+    device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
+    save_dir=None,
     alpha=0,
     early_stopping=False,
 ):
@@ -163,6 +165,28 @@ def learn(
 
         if printLoss:
             print(all_loss)
+        if save_dir is not None:
+            import json
+
+            hyperparameters = {
+                "learning_rate": learning_rate,
+                "batch_size": batch_size,
+                "n_epochs": n_epochs,
+                "reg": reg,
+                "optimizer": "adam",
+                "alpha": alpha,
+            }
+            timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")
+
+            model_path = os.path.join(save_dir, f'mf_model{timestamp}.pt')
+
+            torch.save(
+                {
+                    "model_state_dict": model.state_dict(),
+                    "hyperparameters": hyperparameters,
+                },
+                model_path,
+            )
 
 
 class GenderMseLoss(nn.MSELoss):

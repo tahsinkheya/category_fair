@@ -294,6 +294,7 @@ class NeuMF(NCFBase):
             user_gender=self.user_features,
             item_cat=self.item_features,
         )
+        model=model.to(device=self.de)
         if self.pretrained:
             model.from_pretrained(
                 self.pretrained_gmf.model, self.pretrained_mlp.model, self.alpha

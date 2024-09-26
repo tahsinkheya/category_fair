@@ -95,26 +95,46 @@ ratio_split = StratifiedSplit(
 )
 rec_50 = cornac.metrics.Recall(k=50)
 ndcg_50 = cornac.metrics.NDCG(k=50)
+auc = cornac.metrics.AUC()
+rmse = cornac.metrics.RMSE()
+prec = cornac.metrics.Precision(k=50)
+hr = cornac.metrics.HitRatio(k=50)
+mrr = cornac.metrics.MRR()
+map = cornac.metrics.MAP()
+f1 = cornac.metrics.FMeasure(k=50)
 
+models = []
 
-
-model = MF(
+alpha_values = [0,0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
+# alpha_values =[0]
+for i in range(len(alpha_values)):
+    # learning
+    models.append(
+        MF(
             k=20,
             seed=123,
-            name=f"a={0} mf",
+            name=f"a={alpha_values[i]} mf",
             backend="pytorch",
             verbose=True,
             optimizer="adam",batch_size=1024,
-            alpha=0,
+            alpha=alpha_values[i],
             learning_rate=0.002,
-            top_k=50, max_iter=10,
-            early_stopping=True
+            top_k=50, max_iter=58,
+            # early_stopping=True
         )
+    )
+
+
+
 # models = [model_1, model_2, model_3, model_4, model_5]
-models= [model]
 cornac.Experiment(
-    ratio_split, models=models, metrics=[rec_50, ndcg_50]
+    ratio_split, models=models, metrics=[rec_50, ndcg_50, auc, rmse, prec, hr, mrr, map, f1]
 ).run()
+
+
+# Early stopping:
+# - best epoch = 38, stopped epoch = 58
+# - best monitored value = 0.040254 (delta = 0.000386)
 
 user_ids = users.to_numpy()[:, 1]
 item_ids = movies.to_numpy()[:, 2]
@@ -142,4 +162,6 @@ for u in user_ids:
         reco_matrix_all[i][u] = reco_items
         reco_matrix[i][u] = reco_items[:top_k]
 
-print(reco_matrix[0][3])
+
+np.save("reco_matrix_mf_1m.npy", reco_matrix)
+np.save("reco_matrix_all_mf_1m.npy", reco_matrix_all)

@@ -298,12 +298,12 @@ class VAECF(Recommender):
         if val_set is None:
             return None
 
-        from ...metrics import Recall
+        from ...metrics import HitRatio
         from ...eval_methods import ranking_eval
 
         recall_20 = ranking_eval(
             model=self,
-            metrics=[Recall(k=20)],
+            metrics=[HitRatio(k=20)],
             train_set=train_set,
             test_set=val_set,
         )[0][0]

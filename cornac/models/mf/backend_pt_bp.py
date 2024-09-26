@@ -203,7 +203,7 @@ class GenderMseLossBeyonParity(nn.MSELoss):
                 + (1 - self.a) * mse_loss.sum()
             )
             # print(
-            #     f"loss {loss} mseloss{mse_loss.sum()} gend {   (gender_loss / (2 * (max_rating - min_rating)))* (batch_size * max(mse_loss))}"
+            #     f"loss {loss} mseloss{mse_loss.sum()} gend {   (gender_loss / (2 * (max_rating - min_rating)))* (batch_size * max(mse_loss)) } gender_loss {gender_loss}"
             # )
 
         else:

@@ -9,10 +9,12 @@
 #SBATCH --mem=32G
 #SBATCH --gres=gpu:1
 #SBATCH --time=1-00:00:00
+#SBATCH --partition=gpu-dev-1080
+
 
 # source /opt/python/conda/2020.07_py3.8/anaconda/etc/profile.d/conda.sh
 module load python/3.11
 source cornac_env/bin/activate
 
 # conda activate my_mpi_env
-srun python3 kheya_test.py
+srun python3 test_cornac.py

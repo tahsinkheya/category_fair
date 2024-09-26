@@ -112,7 +112,7 @@ class MF(Recommender, ANNMixin):
         item_features=None,
         alpha=0,
         top_k=0,
-        run_mode="genre",
+        run_mode="genre",save_dir=None
     ):
         super().__init__(name=name, trainable=trainable, verbose=verbose)
         self.k = k
@@ -130,6 +130,7 @@ class MF(Recommender, ANNMixin):
         self.item_features = item_features
         self.alpha = alpha
         self.top_k = top_k
+        self.save_dir = save_dir
         self.run_mode = run_mode
 
         if seed is not None:
@@ -258,7 +259,7 @@ class MF(Recommender, ANNMixin):
         if self.run_mode == "genre":
             from .backend_pt import MF, learn
         else:
-            from .backend_pt_copy_bp import MF, learn
+            from .backend_pt_bp import MF, learn
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.device = device
@@ -295,7 +296,7 @@ class MF(Recommender, ANNMixin):
             alpha=self.alpha,
             recommender=self,
             top_k=self.top_k,
-            early_stopping=self.early_stopping,
+            early_stopping=self.early_stopping, save_dir=self.save_dir
         )
         self.u_factors = model.u_factors.weight.detach().cpu().numpy()
         self.i_factors = model.i_factors.weight.detach().cpu().numpy()

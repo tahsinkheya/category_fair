@@ -180,6 +180,8 @@ def learn(
                 gender_loss = torch.sigmoid(0.1 * (gender_loss - 0.5))
 
                 loss = alpha * gender_loss * max(batch_loss) + (1 - alpha) * vae_loss
+                
+                # print(loss.requires_grad)
 
                 # print(f"loss {loss} gende loss {gender_loss} vaeloss {vae_loss} ")
                 # loss = alpha * gender_loss + vae_loss
@@ -213,7 +215,7 @@ def learn(
                 progress_bar.set_postfix(loss=(sum_loss / count))
 
         if early_stopping and recommender.early_stop(
-            train_set, val_set, min_delta=0.0001, patience=10
+            train_set, val_set, min_delta=0.001, patience=10
         ):
             break
 
