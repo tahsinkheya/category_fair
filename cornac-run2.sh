@@ -1,8 +1,8 @@
 #!/bin/bash -l
 
 
-#SBATCH --output=my_job_output.out  # Output file
-#SBATCH --error=my_job_error.err    # Error file
+#SBATCH --output=my_job_output_neumf.out  # Output file
+#SBATCH --error=my_job_error_neumf.err    # Error file
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=4
@@ -17,4 +17,4 @@ module load python/3.11
 source cornac_env/bin/activate
 
 # conda activate my_mpi_env
-srun python3 test_cornac.py
+srun python3 test_cornac_neumf.py

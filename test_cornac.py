@@ -105,7 +105,8 @@ f1 = cornac.metrics.FMeasure(k=50)
 
 models = []
 
-alpha_values = [0,0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
+alpha_values = [0,0.1, 0.2]
+
 # alpha_values =[0]
 for i in range(len(alpha_values)):
     # learning
