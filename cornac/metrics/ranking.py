@@ -90,6 +90,7 @@ class NDCG(RankingMetric):
             truncated_pd_rank = pd_rank[:k]
         else:
             truncated_pd_rank = pd_rank
+            
 
         ranked_scores = np.in1d(truncated_pd_rank, gt_pos).astype(int)
         gain = 2**ranked_scores - 1

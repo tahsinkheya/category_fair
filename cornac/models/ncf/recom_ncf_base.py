@@ -16,11 +16,17 @@
 
 import numpy as np
 from tqdm.auto import trange
-
+import torch
+from glob import glob
 from ..recommender import Recommender
 from ...utils import get_rng
 from ...exception import ScoreException
+import os
+import pickle
 
+import json
+import warnings
+from datetime import datetime
 from cornac.gender_regularization.GenderLoss import GenderLossMF
 
 
@@ -308,7 +314,7 @@ class NCFBase(Recommender):
                     loop.set_postfix(loss=(sum_loss / count))
 
             if self.early_stopping is not None and self.early_stop(
-                train_set, val_set, min_delta=0.001, patience=20
+                train_set, val_set, min_delta=0.0005, patience=20
             ):
                 break
 
@@ -319,7 +325,7 @@ class NCFBase(Recommender):
     def _score_pt(self, user_idx, item_idx):
         raise NotImplementedError()
 
-    def save(self, save_dir=None):
+    def save(self, save_dir=None, metadata=None, save_trainset=True):
         """Save a recommender model to the filesystem.
 
         Parameters
@@ -328,21 +334,61 @@ class NCFBase(Recommender):
             Path to a directory for the model to be stored.
 
         """
-        if save_dir is None:
-            return
+       
+        model_dir = os.path.join(save_dir, self.name)
+        os.makedirs(model_dir, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")
+        model_file = os.path.join(model_dir, "{}.pkl".format(timestamp))
+        if self.backend == "pytorch":
+            # Save PyTorch model (state_dict) and optionally other info
+            torch.save(
+                {
+                    "model_state_dict": self.model.state_dict(),  # Model parameters
+                    # "optimizer_state_dict": self.optimizer.state_dict(),  # Optimizer state
+                    # "epoch": self.epoch,  # Epoch (optional)
+                    "metadata": metadata,  # Additional metadata
+                },
+                model_file.replace(".pkl", ".pt"),
+            )  # Save as .pt for PyTorch
+            if self.verbose:
+                print(
+                    f"{self.name} PyTorch model is saved to {model_file.replace('.pkl', '.pt')}"
+                )
+        metadata = {} if metadata is None else metadata
+        metadata["model_classname"] = type(self).__name__
+        metadata["model_file"] = os.path.basename(model_file)
 
-        model_file = Recommender.save(self, save_dir)
+        if save_trainset:
+            trainset_file = model_file + ".trainset"
+            pickle.dump(
+                self.train_set,
+                open(trainset_file, "wb"),
+                protocol=pickle.HIGHEST_PROTOCOL,
+            )
+            metadata["trainset_file"] = os.path.basename(trainset_file)
 
-        if self.backend == "tensorflow":
-            self.saver.save(self.sess, model_file.replace(".pkl", ".cpt"))
-        elif self.backend == "pytorch":
-            # TODO: implement model saving for PyTorch
-            raise NotImplementedError()
+        # Save metadata to a .meta file
+        with open(model_file + ".meta", "w", encoding="utf-8") as f:
+            json.dump(metadata, f, ensure_ascii=False, indent=4)
+
+        # model_file = Recommender.save(self, save_dir)
+
+        # if self.backend == "tensorflow":
+        #     self.saver.save(self.sess, model_file.replace(".pkl", ".cpt"))
+        # elif self.backend == "pytorch":
+        #     # TODO: implement model saving for PyTorch
+        #     # raise NotImplementedError()
+        #     torch.save({
+        #     'model_state_dict': self.model.state_dict(),  # Save model parameters
+        #     'optimizer_state_dict': self.optimizer.state_dict(),  # Save optimizer state (optional)
+        #     'epoch': self.epoch,  # Optionally save current epoch
+        #     'metadata': metadata  # Optionally save metadata passed from save function
+        #     }, model_file.replace(".pkl", ".pt"))
 
         return model_file
 
-    @staticmethod
-    def load(model_path, trainable=False):
+    # @staticmethod
+    def load(self, model_path, trainable=False, name="name"):
         """Load a recommender model from the filesystem.
 
         Parameters
@@ -359,16 +405,41 @@ class NCFBase(Recommender):
         -------
         self : object
         """
-        model = Recommender.load(model_path, trainable)
-        if hasattr(model, "pretrained"):  # NeuMF
-            model.pretrained = False
+        if os.path.isdir(model_path):
+            # Pick the latest saved model file in the directory
+            model_file = sorted(glob(os.path.join(model_path, "*.[pkl|pt]")))[-1]
+        else:
+            model_file = model_path
+        if model_file.endswith(".pt"):
+            checkpoint = torch.load(model_file)
 
-        if model.backend == "tensorflow":
-            model._build_graph()
-            model.saver.restore(model.sess, model.load_from.replace(".pkl", ".cpt"))
-        elif model.backend == "pytorch":
-            # TODO: implement model loading for PyTorch
-            raise NotImplementedError()
+            model = self.model  # Instantiate the class (or use an existing model class)
+            model.load_state_dict(checkpoint["model_state_dict"])
+
+            if trainable:
+                # If training is desired, the optimizer must also be restored
+                model.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+
+            # Optionally load additional information like epoch or metadata
+            model.epoch = checkpoint.get("epoch", None)
+            model.metadata = checkpoint.get("metadata", {})
+            model.trainable = trainable
+            model.load_from = model_file
+
+        else:
+            # Handle non-PyTorch models (default to pickle loading)
+            model = pickle.load(open(model_file, "rb"))
+            model.trainable = trainable
+            model.load_from = model_file
+        # model = Recommender.load(model_path, trainable)
+        # if hasattr(model, "pretrained"):  # NeuMF
+        #     model.pretrained = False
+
+        # if model.backend == "tensorflow":
+        #     model._build_graph()
+        #     model.saver.restore(model.sess, model.load_from.replace(".pkl", ".cpt"))
+        # elif model.backend == "pytorch":
+        #     # TODO: implement model loading for PyTorch
 
         return model
 
@@ -393,18 +464,18 @@ class NCFBase(Recommender):
         if val_set is None:
             return None
 
-        from ...metrics import HitRatio
+        from ...metrics import NDCG
         from ...eval_methods import ranking_eval
 
-        hr = ranking_eval(
+        n = ranking_eval(
             model=self,
-            metrics=[HitRatio(k=20)],
+            metrics=[NDCG(k=20)],
             train_set=train_set,
             test_set=val_set,
         )[0][0]
         # print(f"hit ratio {hr}")
 
-        return hr
+        return n
 
     def score(self, user_idx, item_idx=None):
         """Predict the scores/ratings of a user for an item.
