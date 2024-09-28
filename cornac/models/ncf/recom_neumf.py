@@ -124,6 +124,9 @@ class NeuMF(NCFBase):
             top_k=top_k,
         )
         self.num_factors = num_factors
+        print(">>>")
+        print(self.num_factors)
+        print(">>>")
         self.layers = layers
         self.act_fn = act_fn
         self.reg = reg
@@ -293,8 +296,9 @@ class NeuMF(NCFBase):
             act_fn=self.act_fn,
             user_gender=self.user_features,
             item_cat=self.item_features,
+            num_factors=self.num_factors,
         )
-        model=model.to(device=self.device)
+        model = model.to(device=self.device)
         if self.pretrained:
             model.from_pretrained(
                 self.pretrained_gmf.model, self.pretrained_mlp.model, self.alpha
@@ -346,8 +350,11 @@ class NeuMF(NCFBase):
         if item_idx is not None:
             raise ScoreException("Can't make score prediction for item %d" % item_idx)
         if item_idx is None:
-            users = torch.ones(self.num_items, dtype=torch.int64, device = self.device) * user_idx
-            
+            users = (
+                torch.ones(self.num_items, dtype=torch.int64, device=self.device)
+                * user_idx
+            )
+
             items = torch.arange(self.num_items).to(self.device)
         else:
             users = torch.tensor([user_idx], dtype=torch.int64).to(self.device)
