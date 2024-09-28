@@ -1,0 +1,21 @@
+{
+    "model_name": "0.1neumf",
+    "num_factors": 20,
+    "layers": [
+        32,
+        16,
+        8
+    ],
+    "activation_function": "relu",
+    "num_epochs": 64,
+    "batch_size": 256,
+    "num_negatives": 3,
+    "backend": "pytorch",
+    "learning_rate": 0.001,
+    "alpha": 0.1,
+    "early_stopping": true,
+    "top_k": 50,
+    "model_classname": "NeuMF",
+    "model_file": "2024-09-27_14-45-43-589502.pkl",
+    "trainset_file": "2024-09-27_14-45-43-589502.pkl.trainset"
+}

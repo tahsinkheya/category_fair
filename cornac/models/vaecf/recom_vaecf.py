@@ -17,7 +17,7 @@ import numpy as np
 
 from ..recommender import Recommender
 from ...exception import ScoreException
-
+import torch
 
 class VAECF(Recommender):
     """Variational Autoencoder for Collaborative Filtering.
@@ -93,8 +93,8 @@ class VAECF(Recommender):
         trainable=True,
         verbose=False,
         seed=None,
-        use_gpu=False,
-        alpha=0,
+        use_gpu=torch.cuda.is_available(),
+        alpha=0,save_dir=None,
         top_k=0,
     ):
         Recommender.__init__(self, name=name, trainable=trainable, verbose=verbose)
@@ -114,6 +114,7 @@ class VAECF(Recommender):
         self.item_features = None
         self.alpha = alpha
         self.top_k = top_k
+        self.save_dir =save_dir
 
     def fit(self, train_set, val_set=None):
         """Fit the model to observations.
@@ -172,7 +173,7 @@ class VAECF(Recommender):
                 alpha=self.alpha,
                 user_gender=self.user_features,
                 item_cat=self.item_features,
-                recommender=self,
+                recommender=self,save_dir = self.save_dir,
                 top_k=self.top_k,
                 early_stopping=self.early_stopping,
             )
@@ -298,14 +299,14 @@ class VAECF(Recommender):
         if val_set is None:
             return None
 
-        from ...metrics import HitRatio
+        from ...metrics import NDCG
         from ...eval_methods import ranking_eval
 
-        recall_20 = ranking_eval(
+        n = ranking_eval(
             model=self,
-            metrics=[HitRatio(k=20)],
+            metrics=[NDCG(k=20)],
             train_set=train_set,
             test_set=val_set,
         )[0][0]
 
-        return recall_20
+        return n

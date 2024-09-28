@@ -19,7 +19,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 from tqdm.auto import trange
 from cornac.gender_regularization.GenderLoss import GenderLossMF
+from datetime import datetime
 
+import os
 from ...utils import estimate_batches
 
 torch.set_default_dtype(torch.float32)
@@ -115,6 +117,9 @@ class VAE(nn.Module):
         kld = torch.sum(kld, dim=1)
         loss = torch.mean(beta * kld - ll)
         batch_loss = beta * kld - ll
+        # print(";;;;;")
+        # print(batch_loss)
+        # print(";;;;;")
         # if loss> self.max_loss:
         #     self.max_loss = loss
 
@@ -130,14 +135,16 @@ def learn(
     learn_rate,
     beta,
     verbose,
-    device=torch.device("cpu"),
+    device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
     alpha=0,
     user_gender=None,
     item_cat=None,
     recommender=None,
     top_k=0,
+    save_dir=None,
     early_stopping=False,
 ):
+    vae = vae.to(device)
     optimizer = torch.optim.Adam(params=vae.parameters(), lr=learn_rate)
     num_steps = estimate_batches(train_set.num_users, batch_size)
     all_loss = []
@@ -180,7 +187,7 @@ def learn(
                 gender_loss = torch.sigmoid(0.1 * (gender_loss - 0.5))
 
                 loss = alpha * gender_loss * max(batch_loss) + (1 - alpha) * vae_loss
-                
+
                 # print(loss.requires_grad)
 
                 # print(f"loss {loss} gende loss {gender_loss} vaeloss {vae_loss} ")
@@ -215,10 +222,31 @@ def learn(
                 progress_bar.set_postfix(loss=(sum_loss / count))
 
         if early_stopping and recommender.early_stop(
-            train_set, val_set, min_delta=0.001, patience=10
+            train_set, val_set, min_delta=0.0005, patience=20
         ):
             break
 
     print(all_loss)
+    if save_dir is not None:
+        import json
 
+        hyperparameters = {
+            # "learning_rate": learning_rate,
+            "batch_size": batch_size,
+            "n_epochs": n_epochs,
+            # "reg": reg,
+            "optimizer": "adam",
+            "alpha": alpha,
+        }
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")
+
+        model_path = os.path.join(save_dir, f"mf_model{timestamp}.pt")
+
+        torch.save(
+            {
+                "model_state_dict": vae.state_dict(),
+                "hyperparameters": hyperparameters,
+            },
+            model_path,
+        )
     return vae
