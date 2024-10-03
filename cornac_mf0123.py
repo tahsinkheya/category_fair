@@ -4,7 +4,7 @@ from cornac.datasets import movielens
 from cornac.data import Dataset, FeatureModality
 from cornac.eval_methods import RatioSplit, StratifiedSplit
 from cornac.metrics import RMSE, AUC, NDCG, Precision, Recall
-from cornac.models import MF, ItemKNN, UserKNN, NMF, BPR, LightGCN, SVD, MostPop, VAECF
+from cornac.models import MF, ItemKNN, UserKNN, NMF, BPR, LightGCN, SVD, MostPop, VAECF,NeuMF
 import pandas as pd
 import numpy as np
 import random
@@ -105,25 +105,25 @@ f1 = cornac.metrics.FMeasure(k=50)
 
 models = []
 
-alpha_values = [0,0.1, 0.2]
+alpha_values = [0,0.1, 0.2,0.3]
 
 # alpha_values =[0]
 for i in range(len(alpha_values)):
     # learning
-    models.append(
-        MF(
-            k=20,
+    model =  MF(
+            k=64,
             seed=123,
             name=f"a={alpha_values[i]} mf",
             backend="pytorch",
             verbose=True,
             optimizer="adam",batch_size=1024,
             alpha=alpha_values[i],
-            learning_rate=0.002,
-            top_k=50, max_iter=58,
+            learning_rate=0.001,
+            top_k=50, max_iter=70,
             # early_stopping=True
-        )
-    )
+        ) 
+    models.append(model)
+
 
 
 
@@ -164,5 +164,9 @@ for u in user_ids:
         reco_matrix[i][u] = reco_items[:top_k]
 
 
-np.save("reco_matrix_mf_1m.npy", reco_matrix)
-np.save("reco_matrix_all_mf_1m.npy", reco_matrix_all)
+np.save("reco_matrix_mf_1m_0123.npy", reco_matrix)
+np.save("reco_matrix_all_mf_1m_0123.npy", reco_matrix_all)
+
+import pickle
+with open('mf1m0123.pkl', 'wb') as f:
+    pickle.dump(models, f, pickle.HIGHEST_PROTOCOL)
