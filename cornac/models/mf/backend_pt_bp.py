@@ -84,6 +84,7 @@ def learn(
     verbose=True,
     optimizer="sgd",
     device=torch.device("cpu"),
+    save_dir=None,
     alpha=1,
     early_stopping=False,
 ):
