@@ -112,7 +112,8 @@ class MF(Recommender, ANNMixin):
         item_features=None,
         alpha=0,
         top_k=0,
-        run_mode="genre",save_dir=None
+        run_mode="genre",
+        save_dir=None,
     ):
         super().__init__(name=name, trainable=trainable, verbose=verbose)
         self.k = k
@@ -258,6 +259,8 @@ class MF(Recommender, ANNMixin):
 
         if self.run_mode == "genre":
             from .backend_pt import MF, learn
+        elif self.run_mode == "bce":
+            from .backend_pt_bce import MF, learn
         else:
             from .backend_pt_bp import MF, learn
 
@@ -296,7 +299,8 @@ class MF(Recommender, ANNMixin):
             alpha=self.alpha,
             recommender=self,
             top_k=self.top_k,
-            early_stopping=self.early_stopping, save_dir=self.save_dir
+            early_stopping=self.early_stopping,
+            save_dir=self.save_dir,
         )
         self.u_factors = model.u_factors.weight.detach().cpu().numpy()
         self.i_factors = model.i_factors.weight.detach().cpu().numpy()

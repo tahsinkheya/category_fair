@@ -15,6 +15,8 @@
 import itertools
 
 import torch
+from tqdm.auto import tqdm, trange
+
 import torch.nn as nn
 from tqdm.auto import trange
 from cornac.gender_regularization.GenderLoss import GenderLossMF
@@ -57,8 +59,7 @@ class MF(nn.Module):
         self.u_factors = nn.Embedding(*u_factors.shape)
         self.i_factors = nn.Embedding(*i_factors.shape)
         self.u_factors.weight.data = torch.from_numpy(u_factors)
-        self.global_bias = torch.nn.Parameter(torch.tensor(0.3), requires_grad=True)
-
+        self.global_bias = torch.nn.Parameter(torch.tensor(0.1), requires_grad=True)
         self.i_factors.weight.data = torch.from_numpy(i_factors)
         if use_bias:
             self.u_biases = nn.Embedding(*u_biases.shape)
@@ -93,6 +94,7 @@ def learn(
     verbose=True,
     optimizer="sgd",
     device=torch.device("cpu"),
+    save_dir=None,
     alpha=0,
     early_stopping=False,
 ):
@@ -100,7 +102,8 @@ def learn(
     optimizer = OPTIMIZER_DICT[optimizer](
         params=model.parameters(), lr=learning_rate, weight_decay=reg
     )
-    new_loss = GenderMseLoss(a=alpha)
+    new_loss = TotalLoss(a=alpha)
+    # loss_func = BPR_loss_edit(a=alpha)
 
     printLoss = False
     all_loss = []
@@ -115,22 +118,43 @@ def learn(
     for _ in progress_bar:
         sum_loss = 0.0
         count = 0
-        for batch_id, (u_batch, i_batch, r_batch) in enumerate(
-            train_set.uir_iter(batch_size, shuffle=True, binary=True, num_zeros=1)
+
+        # for batch_id, (u_batch, i_batch, r_batch) in enumerate(
+        #     train_set.uir_iter(batch_size, shuffle=True, binary=True, num_zeros=1)
+        # ):
+        for batch_u, batch_i, batch_j in tqdm(
+            train_set.uij_iter(
+                batch_size=batch_size,
+                shuffle=True,
+            ),
+            desc="Epoch",
+            total=train_set.num_batches(batch_size),
+            leave=False,
+            position=1,
+            disable=not verbose,
         ):
-            u_batch = torch.from_numpy(u_batch).to(device)
-            i_batch = torch.from_numpy(i_batch).to(device)
-            r_batch = torch.tensor(r_batch, dtype=torch.float).to(device)
+            u_batch = torch.from_numpy(batch_u).to(device)
+            i_batch = torch.from_numpy(batch_i).to(device)
+            j_batch = torch.from_numpy(batch_j).to(device)
+            item_batch = torch.cat((i_batch, j_batch), dim=0)
+            user_batch = torch.cat((u_batch, u_batch), dim=0)
+            # print("_" * 10)
 
-            preds = model(u_batch, i_batch)
+            # print(item_batch[:256])
+            # print(item_batch[256:])
+            # print("_" * 10)
 
-            # loss = criteria(preds, r_batch)
-            # print(r_batch.shape)
+            # print(item_batch2.shape)
+
+            # r_batch = torch.tensor(r_batch, dtype=torch.float).to(device)
+
+            preds = model(user_batch, item_batch)
             if _ == n_epochs:
                 printLoss = True
+            # loss = loss_func.compute(preds, batch_size, u_batch)
             loss = new_loss.forward(
                 preds,
-                r_batch,
+                # r_batch,
                 genders,
                 u_batch,
                 i_batch,
@@ -139,8 +163,8 @@ def learn(
                 recommender,
                 top_k,
                 batch_size,
-                train_set.max_rating,
-                printLoss,
+                # train_set.max_rating,
+                # printLoss,
             )
 
             optimizer.zero_grad()
@@ -158,8 +182,8 @@ def learn(
             sum_loss += loss.data.item()
             count += len(u_batch)
 
-            if batch_id % 10 == 0:
-                progress_bar.set_postfix(loss=(sum_loss / count))
+            # if batch_id % 10 == 0:
+            progress_bar.set_postfix(loss=(sum_loss / count))
 
         if early_stopping and recommender.early_stop(
             train_set, val_set, min_delta=0.001, patience=5
@@ -171,18 +195,18 @@ def learn(
             print(all_loss)
 
 
-class GenderMseLoss:
+class TotalLoss:
     def __init__(self, a):
         # super().__init__(reduction=reduction)
         self.bpr_loss = BPR_loss_edit()
-        self.xcriteria = nn.BCELoss()
+        # self.xcriteria = nn.BCELoss()
 
         self.a = a
 
     def forward(
         self,
         preds,
-        r_batch,
+        # r_batch,
         g_batch,
         u_batch,
         i_batch,
@@ -190,48 +214,30 @@ class GenderMseLoss:
         recommender,
         top_k,
         batch_size,
-        max_rating,
-        printLoss=False,
+        # max_rating,
+        # printLoss=False,
     ):
 
-        # f = g_batch == 1
-        # m = g_batch == 0
-        # diff = torch.abs(r_batch - preds)
-
-        # equation 3 start____________________________
         gender_loss = 0
-        # bpr = self.bpr_loss.compute(pred=preds, ground_truth=r_batch, u_batch=u_batch)
-        # bpr = self.bpr_loss.compute_bpr_loss(preds, r_batch, u_batch)
-
-        bce_loss = self.xcriteria(preds, r_batch)
-        # print(":" * 10)
-        # print(bce_loss * batch_size*2)
-        # print(bce_loss.sum())
-        # # print(r_batch)
-        # print(":" * 10)
-
-        # print(":" * 10)
-        # print(x.sum())
-        # print(x.shape)
-        # print(bpr.sum())
-        # print(bpr.shape)
-        # print(":" * 10)
-        # print(self.bpr_loss.batch_bpr_loss(preds, r_batch))
+        bpr_loss = self.bpr_loss.compute(preds, batch_size, u_batch)
 
         if self.a != 0:
             glmf = GenderLossMF(g_batch, u_batch, genres, recommender, top_k)
             gender_loss = glmf.compute()
             gender_loss = torch.sigmoid(0.1 * (gender_loss - 0.5))
             loss = (
-                self.a * gender_loss * (batch_size * max(bce_loss))
-                + (1 - self.a) * bce_loss.sum()
+                self.a * gender_loss * (batch_size * max(bpr_loss))
+                + (1 - self.a) * bpr_loss.sum()
             )
-            print(
-                f"bpr loss {bce_loss.sum()} max(bpr) {max(bce_loss)*batch_size} gloss={gender_loss} loss ={loss}"
-            )
+            # print(
+            #     f"bpr loss {bpr_loss.sum()} max(bpr) {max(bpr_loss)*batch_size} gloss={gender_loss*max(bpr_loss)*batch_size} loss ={loss}"
+            # )
 
         else:
-            loss = bce_loss * 2 * batch_size
+            loss = bpr_loss.sum()
+            print("*" * 10)
+            print(loss)
+            print("*" * 10)
 
         # glmf = GenderLossMF(
         #         g_batch, u_batch, i_batch, diff, genres, recommender, top_k
@@ -255,6 +261,7 @@ class BPR_loss_edit:
     def __init__(self):
         # super().__init__(reduction=reduction)
         self.name = "BPRLOSS"
+        # self.a = a
 
     def bpr_loss(
         users_emb_final,
@@ -285,16 +292,18 @@ class BPR_loss_edit:
 
         return loss
 
-    def compute(self, pred, ground_truth, u_batch):
+    def compute(self, preds, batch_size, u_batch):
+        pos_pred = preds[:batch_size]
+        neg_pred = preds[batch_size:]
 
-        self.pred = pred
-        self.ground_truth = ground_truth
-        pos_item = ground_truth == 1
-        neg_item = ground_truth == 0
-        pos = pred[pos_item]
-        neg = pred[neg_item]
+        # self.pred = pred
+        # self.ground_truth = ground_truth
+        # pos_item = ground_truth == 1
+        # neg_item = ground_truth == 0
+        # pos = pred[pos_item]
+        # neg = pred[neg_item]
 
-        score_diff = pos - neg
+        score_diff = pos_pred - neg_pred
         fl = -score_diff.sigmoid().log()
 
         return fl

@@ -1117,35 +1117,35 @@ class BaseMethod:
         
 
         # print("*" * 10)
-        for k, v in metric_user_results.items():
-            m_ids = []
-            female_res = []
-            male_res = []
-            female_iids = []
-            print("_" * 10)
-            # print(v.items().__len__())
-            print(k)
-            print("_" * 10)
-            for uid, m in v.items():
-                # print(f"uid: {uid}")
-                # print(f"g: {genders[uid]}")
-                g = genders[uid]
-                if g == 1 :  # female
-                    female_res.append(m)
-                    female_iids.append(uid)
-                elif g == 0 and uid in male_iids:
-                    male_res.append(m)
-                    m_ids.append(uid)
-            print("#" * 10)
-            print("male" * 10)
-            print(m_ids)
-            print(m_ids.__len__())
-            print("female" * 10)
-            print(female_iids)
-            print(female_iids.__len__())
-            print("#" * 10)
-            print(f"{sum(female_res) / len(female_res)} female")
-            print(f"{sum(male_res) / len(male_res)} male")
+        # for k, v in metric_user_results.items():
+        #     m_ids = []
+        #     female_res = []
+        #     male_res = []
+        #     female_iids = []
+        #     print("_" * 10)
+        #     # print(v.items().__len__())
+        #     print(k)
+        #     print("_" * 10)
+        #     for uid, m in v.items():
+        #         # print(f"uid: {uid}")
+        #         # print(f"g: {genders[uid]}")
+        #         g = genders[uid]
+        #         if g == 1 :  # female
+        #             female_res.append(m)
+        #             female_iids.append(uid)
+        #         elif g == 0 and uid in male_iids:
+        #             male_res.append(m)
+        #             m_ids.append(uid)
+            # print("#" * 10)
+            # print("male" * 10)
+            # print(m_ids)
+            # print(m_ids.__len__())
+            # print("female" * 10)
+            # print(female_iids)
+            # print(female_iids.__len__())
+            # print("#" * 10)
+            # print(f"{sum(female_res) / len(female_res)} female")
+            # print(f"{sum(male_res) / len(male_res)} male")
 
         # for k, v in metric_user_results.items():
 
