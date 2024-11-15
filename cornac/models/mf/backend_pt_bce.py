@@ -138,7 +138,13 @@ def learn(
             j_batch = torch.from_numpy(batch_j).to(device)
             item_batch = torch.cat((i_batch, j_batch), dim=0)
             user_batch = torch.cat((u_batch, u_batch), dim=0)
+
             # print("_" * 10)
+            # print(
+            #     f"pos items {i_batch.shape} neg items {j_batch.shape} all {item_batch.shape}"
+            # )
+            # print(item_batch.shape)
+            # print(user_batch.shape)
 
             # print(item_batch[:256])
             # print(item_batch[256:])
@@ -186,7 +192,7 @@ def learn(
             progress_bar.set_postfix(loss=(sum_loss / count))
 
         if early_stopping and recommender.early_stop(
-            train_set, val_set, min_delta=0.001, patience=5
+            train_set, val_set, min_delta=0.0005, patience=10
         ):
             print(all_loss)
             break
@@ -219,7 +225,7 @@ class TotalLoss:
     ):
 
         gender_loss = 0
-        bpr_loss = self.bpr_loss.compute(preds, batch_size, u_batch)
+        bpr_loss = self.bpr_loss.compute(preds)
 
         if self.a != 0:
             glmf = GenderLossMF(g_batch, u_batch, genres, recommender, top_k)
@@ -235,9 +241,9 @@ class TotalLoss:
 
         else:
             loss = bpr_loss.sum()
-            print("*" * 10)
-            print(loss)
-            print("*" * 10)
+            # print("*" * 10)
+            # print(loss)
+            # print("*" * 10)
 
         # glmf = GenderLossMF(
         #         g_batch, u_batch, i_batch, diff, genres, recommender, top_k
@@ -292,9 +298,15 @@ class BPR_loss_edit:
 
         return loss
 
-    def compute(self, preds, batch_size, u_batch):
-        pos_pred = preds[:batch_size]
-        neg_pred = preds[batch_size:]
+    def compute(self, preds):
+        slice_ind = preds.shape[0] // 2
+        pos_pred = preds[:slice_ind]
+        neg_pred = preds[slice_ind:]
+        # print("_" * 10)
+        # print(
+        #     f"preds shape {preds.shape} pos preds { pos_pred.shape} neg preds {neg_pred.shape}"
+        # )
+        # print("_" * 10)
 
         # self.pred = pred
         # self.ground_truth = ground_truth
