@@ -139,7 +139,6 @@ def learn(
             item_batch = torch.cat((i_batch, j_batch), dim=0)
             user_batch = torch.cat((u_batch, u_batch), dim=0)
 
-            # print("_" * 10)
             # print(
             #     f"pos items {i_batch.shape} neg items {j_batch.shape} all {item_batch.shape}"
             # )

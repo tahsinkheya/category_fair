@@ -262,7 +262,7 @@ class MF(Recommender, ANNMixin):
         elif self.run_mode == "bce":
             from .backend_pt_bce import MF, learn
         else:
-            from .backend_pt_bp import MF, learn
+            from .backend_pt_bpr_bp import MF, learn
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.device = device
