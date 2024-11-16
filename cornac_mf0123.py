@@ -4,12 +4,24 @@ from cornac.datasets import movielens
 from cornac.data import Dataset, FeatureModality
 from cornac.eval_methods import RatioSplit, StratifiedSplit
 from cornac.metrics import RMSE, AUC, NDCG, Precision, Recall
-from cornac.models import MF, ItemKNN, UserKNN, NMF, BPR, LightGCN, SVD, MostPop, VAECF,NeuMF
+from cornac.models import (
+    MF,
+    ItemKNN,
+    UserKNN,
+    NMF,
+    BPR,
+    LightGCN,
+    SVD,
+    MostPop,
+    VAECF,
+    NeuMF,
+)
 import pandas as pd
 import numpy as np
 import random
 import math
 from collections import OrderedDict
+
 # import seaborn as sns
 # import matplotlib.pyplot as plt
 
@@ -78,7 +90,7 @@ unique_genres.__len__()
 movies = movies.sort_values(by="itemID")
 movies
 users
-user_features_numpy[:,1]
+user_features_numpy[:, 1]
 dataset = rating_data
 unique_genres.__len__()
 ratio_split = StratifiedSplit(
@@ -105,37 +117,40 @@ f1 = cornac.metrics.FMeasure(k=50)
 
 models = []
 
-alpha_values = [0,0.1, 0.2,0.3]
+alpha_values = [0, 0.1, 0.2, 0.3]
 
 # alpha_values =[0]
 for i in range(len(alpha_values)):
     # learning
-    model =  MF(
-            k=64,
-            seed=123,
-            name=f"a={alpha_values[i]} mf",
-            backend="pytorch",
-            verbose=True,
-            optimizer="adam",batch_size=1024,
-            alpha=alpha_values[i],
-            learning_rate=0.001,
-            top_k=50, max_iter=70,
-            # early_stopping=True
-        ) 
+    model = MF(
+        k=40,
+        seed=123,
+        name=f"a={alpha_values[i]} mf",
+        backend="pytorch",
+        verbose=True,
+        optimizer="adam",
+        batch_size=256,
+        alpha=alpha_values[i],
+        learning_rate=0.001,
+        top_k=50,
+        max_iter=11,
+        run_mode="bce",
+        # early_stopping=True
+    )
     models.append(model)
-
-
 
 
 # models = [model_1, model_2, model_3, model_4, model_5]
 cornac.Experiment(
-    ratio_split, models=models, metrics=[rec_50, ndcg_50, auc, rmse, prec, hr, mrr, map, f1]
+    ratio_split,
+    models=models,
+    metrics=[rec_50, ndcg_50, auc, rmse, prec, hr, mrr, map, f1],
 ).run()
 
 
 # Early stopping:
-# - best epoch = 38, stopped epoch = 58
-# - best monitored value = 0.040254 (delta = 0.000386)
+# - best epoch = 1, stopped epoch = 11
+# - best monitored value = 0.067115 (delta = -0.000222)
 
 user_ids = users.to_numpy()[:, 1]
 item_ids = movies.to_numpy()[:, 2]
@@ -164,9 +179,10 @@ for u in user_ids:
         reco_matrix[i][u] = reco_items[:top_k]
 
 
-np.save("reco_matrix_mf_1m_0123.npy", reco_matrix)
-np.save("reco_matrix_all_mf_1m_0123.npy", reco_matrix_all)
+np.save("reco_matrix_mf_1m_0123_bs256e11k40bpr.npy", reco_matrix)
+np.save("reco_matrix_all_mf_1m_0123_bs256e11k40bpr.npy", reco_matrix_all)
 
 import pickle
-with open('mf1m0123.pkl', 'wb') as f:
+
+with open("mf1m_0123_bs256e11k40bpr.pkl", "wb") as f:
     pickle.dump(models, f, pickle.HIGHEST_PROTOCOL)
