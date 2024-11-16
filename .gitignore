@@ -72,6 +72,7 @@ results
 
 
 reco_matrix_all.npy
+reco_matrx_*.npy
 reco_matrix.npy
 reco_matrix_mapped_items.npy
 reco_matrix_mapped_scores.npy
