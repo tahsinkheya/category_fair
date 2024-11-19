@@ -108,9 +108,9 @@ def learn(
     printLoss = False
     all_loss = []
     progress_bar = trange(1, n_epochs + 1, disable=not verbose)
-    genress = torch.tensor(model.item_cat, dtype=torch.float32, requires_grad=True).to(
-        device
-    )
+    # genress = torch.tensor(model.item_cat, dtype=torch.float32, requires_grad=True).to(
+    #     device
+    # )
     genders = torch.tensor(
         model.user_gender, dtype=torch.float32, requires_grad=True
     ).to(device)
@@ -137,7 +137,7 @@ def learn(
             i_batch = torch.from_numpy(batch_i).to(device)
             j_batch = torch.from_numpy(batch_j).to(device)
             item_batch = torch.cat((i_batch, j_batch), dim=0)
-            g_batch = torch.tensor(model.user_gender[u_batch]).to(device)
+            g_batch = torch.tensor(genders[u_batch]).to(device)
             user_batch = torch.cat((u_batch, u_batch), dim=0)
 
             preds = model(user_batch, item_batch)
@@ -149,7 +149,7 @@ def learn(
                 g_batch,
                 u_batch,
                 i_batch,
-                genress,
+                # genress,
                 recommender,
                 top_k,
                 batch_size,
@@ -197,7 +197,7 @@ class TotalLoss:
         g_batch,
         u_batch,
         i_batch,
-        genres,
+        # genres,
         recommender,
         top_k,
         batch_size,

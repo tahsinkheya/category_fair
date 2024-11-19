@@ -143,7 +143,7 @@ def learn(
             if batch_id % 10 == 0:
                 progress_bar.set_postfix(loss=(sum_loss / count))
         if early_stopping and recommender.early_stop(
-            train_set, val_set, min_delta=0.001, patience=10
+            train_set, val_set, min_delta=0.0005, patience=10
         ):
             break
         if printLoss:
