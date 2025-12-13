@@ -11,6 +11,7 @@ __pycache__/
 cornac/models/*/*.cpp
 cornac/models/*/cython/*.cpp
 cornac/utils/*.cpp
+cornac/models/saved_models_tors
 
 # Distribution / packaging
 bin/

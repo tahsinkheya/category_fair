@@ -285,12 +285,12 @@ def ranking_eval(
         u_gt_neg_items = np.nonzero(u_gt_neg_mask)[
             0
         ]  # index of items that are not in test,val or train set
-        print("xxx" * 10)
-        print(
-            f"user {user_idx} val_Set {val_set} test set {test_pos_items} train set {train_pos_items}"
-        )
+        # print("xxx" * 10)
+        # print(
+        #     f"user {user_idx} val_Set {val_set} test set {test_pos_items} train set {train_pos_items}"
+        # )
 
-        print("xxx" * 10)
+        # print("xxx" * 10)
 
         item_rank, item_scores = model.rank(
             user_idx=user_idx, item_indices=item_indices, k=max_k

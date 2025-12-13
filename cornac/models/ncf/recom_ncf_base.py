@@ -28,6 +28,8 @@ import json
 import warnings
 from datetime import datetime
 from cornac.gender_regularization.GenderLoss import GenderLossMF
+from cornac.gender_regularization.GenderLossRCR import GenderLossMFRCR
+
 
 
 class NCFBase(Recommender):
