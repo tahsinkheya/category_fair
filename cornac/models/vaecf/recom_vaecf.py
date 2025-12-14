@@ -213,14 +213,14 @@ class VAECF(Recommender):
             x_u = self.r_mat[user_idx].copy()
             x_u.data = np.ones(len(x_u.data))
             z_u, _ = self.vae.encode(
-                torch.tensor(x_u.A, dtype=torch.float32, device=self.device)
+                torch.tensor(x_u.toarray(), dtype=torch.float32, device=self.device)
             )
             return self.vae.decode(z_u).data.cpu().numpy().flatten()
         else:
             x_u = self.r_mat[user_idx].copy()
             x_u.data = np.ones(len(x_u.data))
             z_u, _ = self.vae.encode(
-                torch.tensor(x_u.A, dtype=torch.float32, device=self.device)
+                torch.tensor(x_u.toarray(), dtype=torch.float32, device=self.device)
             )
             return (
                 self.vae.decode(z_u).data.cpu().numpy().flatten()[item_idx]

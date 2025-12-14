@@ -19,6 +19,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from tqdm.auto import trange
 from cornac.gender_regularization.GenderLoss import GenderLossMF
+from cornac.gender_regularization.GenderLossRCR import GenderLossRCR
 from datetime import datetime
 
 import os
@@ -166,7 +167,7 @@ def learn(
         ):
             u_batch = train_set.matrix[u_ids, :]
             u_batch.data = np.ones(len(u_batch.data))  # Binarize data
-            u_batch = u_batch.A
+            u_batch = u_batch.toarray()
             u_batch = torch.tensor(u_batch, dtype=torch.float32, device=device)
             uid_batch = torch.from_numpy(u_ids).to(device)
 
@@ -175,7 +176,7 @@ def learn(
 
             vae_loss, batch_loss = vae.loss(u_batch, u_batch_, mu, logvar, beta)
             if alpha != 0:
-                gl = GenderLossMF(
+                gl = GenderLossRCR(
                     gender=gender_values,
                     users=uid_batch,
                     genres=genress,
