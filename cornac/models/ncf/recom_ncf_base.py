@@ -273,7 +273,7 @@ class NCFBase(Recommender):
                 if self.alp != 0:
                     # calculate adn add gender loss
                     bce_loss_none = criteria1(outputs, batch_ratings)
-                    g_loss = GenderLossMF(
+                    g_loss = GenderLossMFRCR(
                         gender=gender_values,
                         users=batch_users,
                         genres=genre_values,
