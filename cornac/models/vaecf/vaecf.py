@@ -18,8 +18,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from tqdm.auto import trange
-from cornac.gender_regularization.GenderLoss import GenderLossMF
-from cornac.gender_regularization.GenderLossRCR import GenderLossMFRCR
+from cornac.gender_regularization.GenderLoss import GenderLoss
+from cornac.gender_regularization.GenderLossRCR import GenderLossRCR
 from datetime import datetime
 
 import os
@@ -176,7 +176,7 @@ def learn(
 
             vae_loss, batch_loss = vae.loss(u_batch, u_batch_, mu, logvar, beta)
             if alpha != 0:
-                gl = GenderLossMFRCR(
+                gl = GenderLossRCR(
                     gender=gender_values,
                     users=uid_batch,
                     genres=genress,

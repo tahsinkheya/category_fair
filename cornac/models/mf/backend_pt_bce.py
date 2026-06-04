@@ -19,8 +19,8 @@ from tqdm.auto import tqdm, trange
 
 import torch.nn as nn
 from tqdm.auto import trange
-from cornac.gender_regularization.GenderLoss import GenderLossMF
-from cornac.gender_regularization.GenderLossRCR import GenderLossMFRCR
+from cornac.gender_regularization.GenderLoss import GenderLoss
+from cornac.gender_regularization.GenderLossRCR import GenderLossRCR
 import numpy as np
 import torch.nn.functional as F
 import random
@@ -228,7 +228,7 @@ class TotalLoss:
         bpr_loss = self.bpr_loss.compute(preds)
 
         if self.a != 0:
-            glmf = GenderLossMFRCR(g_batch, u_batch, genres, recommender, top_k)
+            glmf = GenderLoss(g_batch, u_batch, genres, recommender, top_k)
             gender_loss = glmf.compute()
             gender_loss = torch.sigmoid(0.1 * (gender_loss - 0.5))
             loss = (

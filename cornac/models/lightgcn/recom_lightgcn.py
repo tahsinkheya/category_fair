@@ -19,7 +19,7 @@ from ...exception import ScoreException
 import numpy as np
 
 # from cornac.models.lightgcn.GenderLossLGCN import GenderLossGCN
-from cornac.gender_regularization.GenderLoss import GenderLossMF
+from cornac.gender_regularization.GenderLoss import GenderLoss
 
 import torch
 from tqdm.auto import tqdm, trange
@@ -94,7 +94,7 @@ class LightGCN(Recommender, ANNMixin):
         user_features=None,
         item_features=None,
         verbose=False,
-        seed=2020,
+        seed=42,
         alpha=0,
         top_k=0,
     ):
@@ -196,11 +196,7 @@ class LightGCN(Recommender, ANNMixin):
                 ) = model(graph, batch_u, batch_i, batch_j)
                 self.U_in_batch = all_u_emb
                 self.V_in_batch = all_i_emb
-                # print("::::::")
-                # print(all_u_emb)
-                # print(all_i_emb)
-
-                # print("::::::")
+               
                 batch_loss, batch_bpr_loss, batch_reg_loss, all_batch_loss = (
                     model.loss_fn(
                         u_g_embeddings, pos_i_g_embeddings, neg_i_g_embeddings
@@ -211,7 +207,7 @@ class LightGCN(Recommender, ANNMixin):
                 u_batch = torch.from_numpy(batch_u).to(device)
 
                 if self.alpha != 0:
-                    gl = GenderLossMF(
+                    gl = GenderLoss(
                         gender=torch.tensor(self.user_features).to(device),
                         users=u_batch,
                         genres=torch.tensor(self.item_features).to(device),
@@ -219,6 +215,8 @@ class LightGCN(Recommender, ANNMixin):
                         top_k=self.top_k,
                     )
                     gender_loss = gl.compute()
+                    gender_loss = torch.sigmoid(0.1 * (gender_loss - 0.5))
+
                 else:
                     gender_loss = 0
 
@@ -253,7 +251,7 @@ class LightGCN(Recommender, ANNMixin):
             self.V = i_embs.cpu().detach().numpy()
 
             if self.early_stopping is not None and self.early_stop(
-                train_set, val_set, **self.early_stopping
+                train_set, val_set, min_delta=0.0005, patience=20
             ):
                 break
 
@@ -278,12 +276,12 @@ class LightGCN(Recommender, ANNMixin):
         if val_set is None:
             return None
 
-        from ...metrics import Recall
+        from ...metrics import NDCG
         from ...eval_methods import ranking_eval
 
         recall_20 = ranking_eval(
             model=self,
-            metrics=[Recall(k=20)],
+            metrics=[NDCG(k=20)],
             train_set=train_set,
             test_set=val_set,
         )[0][0]
@@ -394,6 +392,9 @@ class LightGCN(Recommender, ANNMixin):
             known_item_scores_2 = torch.matmul(
                 self.V_in_batch, self.U_in_batch[user_idx, :]
             )
+            
+            # known_item_scores_3 = self.V_in_batch.dot(self.U_in_batch[user_idx, :])
+           
 
             return known_item_scores_2
         else:

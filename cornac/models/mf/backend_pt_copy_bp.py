@@ -17,7 +17,7 @@ import itertools
 import torch
 import torch.nn as nn
 from tqdm.auto import trange
-from cornac.gender_regularization.GenderLoss import GenderLossMF
+from cornac.gender_regularization.GenderLoss import GenderLoss
 import numpy as np
 import torch.nn.functional as F
 import random
@@ -250,7 +250,7 @@ class GenderMseLoss:
         else:
             loss = bpr.sum()
 
-        # glmf = GenderLossMF(
+        # glmf = GenderLoss(
         #         g_batch, u_batch, i_batch, diff, genres, recommender, top_k
         #     )
 

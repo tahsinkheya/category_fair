@@ -27,8 +27,8 @@ import pickle
 import json
 import warnings
 from datetime import datetime
-from cornac.gender_regularization.GenderLoss import GenderLossMF
-from cornac.gender_regularization.GenderLossRCR import GenderLossMFRCR
+from cornac.gender_regularization.GenderLoss import GenderLoss
+# from cornac.gender_regularization.GenderLossRCR import GenderLossRCR
 
 
 
@@ -273,7 +273,7 @@ class NCFBase(Recommender):
                 if self.alp != 0:
                     # calculate adn add gender loss
                     bce_loss_none = criteria1(outputs, batch_ratings)
-                    g_loss = GenderLossMFRCR(
+                    g_loss = GenderLossRCR(
                         gender=gender_values,
                         users=batch_users,
                         genres=genre_values,

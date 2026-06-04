@@ -18,7 +18,7 @@ import torch.nn as nn
 from tqdm.auto import trange
 from datetime import datetime
 
-from cornac.gender_regularization.GenderLoss import GenderLossMF
+from cornac.gender_regularization.GenderLoss import GenderLoss
 import numpy as np
 import os
 OPTIMIZER_DICT = {
@@ -216,7 +216,7 @@ class GenderMseLoss(nn.MSELoss):
         # equation 3 start____________________________
         gender_loss = 0
         if self.a != 0:
-            glmf = GenderLossMF(g_batch, u_batch, genres, recommender, top_k)
+            glmf = GenderLoss(g_batch, u_batch, genres, recommender, top_k)
             gender_loss = glmf.compute()
             gender_loss = torch.sigmoid(0.1 * (gender_loss - 0.5))
 
@@ -237,7 +237,7 @@ class GenderMseLoss(nn.MSELoss):
         else:
             loss = mse_loss.sum()
 
-        # glmf = GenderLossMF(
+        # glmf = GenderLoss(
         #         g_batch, u_batch, i_batch, diff, genres, recommender, top_k
         #     )
 

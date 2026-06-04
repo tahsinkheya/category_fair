@@ -1,7 +1,7 @@
 import torch
 
 
-class GenderLossMF(object):
+class GenderLoss(object):
     def __init__(self, gender, users, genres, recommender, top_k):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
