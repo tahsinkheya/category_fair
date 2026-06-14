@@ -41,6 +41,8 @@ class Model(nn.Module):
         self.lambda_reg = lambda_reg
         self.tau = tau
         self.layers = nn.ModuleList([GCNLayer() for _ in range(self.n_layers)])
+        self.initializer = nn.init.xavier_uniform_
+
         self.feature_dict = nn.ParameterDict(
             {
                 ntype: nn.Parameter(
@@ -65,7 +67,7 @@ class Model(nn.Module):
         user_cl_embeddings = None
         item_cl_embeddings = None
         for k, layer in enumerate(self.layers):
-            h_dict = layer(g, h_dict)
+            h_dict = layer(in_g, h_dict)
             if perturbed:
                 for ntype in [USER_KEY, ITEM_KEY]:
                     random_noise = torch.rand_like(h_dict[ntype])
@@ -162,15 +164,9 @@ class Model(nn.Module):
             )
         )
 
-        user_loss = self.info_nce(
-            user_view1[u_idx],
-            user_view2[u_idx],
-        )
+        user_loss = info_nce(user_view1[u_idx], user_view2[u_idx], self.tau)
 
-        item_loss = self.info_nce(
-            item_view1[i_idx],
-            item_view2[i_idx],
-        )
+        item_loss = info_nce(item_view1[i_idx], item_view2[i_idx], self.tau)
 
         return user_loss + item_loss
 
