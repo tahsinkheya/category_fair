@@ -85,3 +85,4 @@ test_cornac.py
 test_cornac_neumf.py
 cornac-run2.sh
 cornac-run.sh*.npy
+*.npy
