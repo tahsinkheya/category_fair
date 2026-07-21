@@ -146,6 +146,7 @@ class XSimGCL(Recommender, ANNMixin):
                     user_cl_embeddings,
                     item_cl_embeddings,
                 ) = model(graph, batch_u, batch_i, batch_j, perturbed=True)
+               
                 self.U_in_batch = user_embeds
                 self.V_in_batch = item_embeds
                 batch_loss, batch_bpr_loss, batch_reg_loss, all_batch_loss = (
@@ -155,6 +156,8 @@ class XSimGCL(Recommender, ANNMixin):
                 )
 
                 u_batch = torch.from_numpy(batch_u).to(device)
+               
+                
                 if self.alpha != 0:
                     gl = GenderLoss(
                         gender=torch.tensor(self.user_features).to(device),
@@ -168,8 +171,8 @@ class XSimGCL(Recommender, ANNMixin):
 
                 else:
                     gender_loss = 0
-
-                cl_loss = model.cl_loss(
+                # print(f"all batch loss {all_batch_loss.shape}")
+                cl_loss, max_cl_loss = model.cl_loss(
                     batch_u,
                     batch_i,
                     user_embeds,
@@ -178,10 +181,13 @@ class XSimGCL(Recommender, ANNMixin):
                     item_cl_embeddings,
                 )
                 xsim_loss = batch_loss + self.lambda_cl * cl_loss
+                maxsim_loss =  max(all_batch_loss) +self.lambda_cl*max_cl_loss
+                
                 loss = (
-                    self.alpha * gender_loss * max(all_batch_loss)
+                    self.alpha * gender_loss * maxsim_loss
                     + (1 - self.alpha) * xsim_loss
                 )
+              
                 accum_loss += xsim_loss.cpu().item() * len(batch_u)
                 optimizer.zero_grad()
 

@@ -619,6 +619,13 @@ class BaseMethod:
 
             # x["uid"] = x["uid"].map(r_global_uid_map)
             # x["iid"] = x["iid"].map(r_global_iid_map)
+            print("train set __________")
+            print(self.train_set.num_items)
+            print(self.train_set.csr_matrix.indices.max())
+            print("train set __________")
+
+            
+        
 
             # x.to_csv("training_set_seed123_ml100k.csv", index=False, header=False)
             print("Number of users = {}".format(self.train_set.num_users))
@@ -661,6 +668,10 @@ class BaseMethod:
                     self.test_set.num_items - self.train_set.num_items
                 )
             )
+            print("test set __________")
+            print(self.test_set.num_items)
+            print(self.test_set.csr_matrix.indices.max())
+            print("trtestain set __________")
             # x = pd.DataFrame(self.test_set.uir_tuple).transpose()
             # x.columns = ["uid", "iid", "rating"]
             # x = x.astype({"uid": "int", "iid": "int", "rating": "int"})

@@ -14,9 +14,12 @@ ITEM_KEY = "item"
 def info_nce(z1, z2, temperature):
     z1 = F.normalize(z1, dim=-1)
     z2 = F.normalize(z2, dim=-1)
+    # print(f"z1 {z1.shape} z2 {z2.shape}")
     sim = torch.mm(z1, z2.t()) / temperature
-    labels = torch.arange(z1.size(0), device=z1.device)
-    return F.cross_entropy(sim, labels)
+    labels = torch.arange(
+        z1.size(0), device=z1.device
+    )  # This is just telling the model: "for row 0, the correct answer is column 0. For row 1, the correct answer is column 1" — i.e. each user should match with themselves, not anyone else.
+    return F.cross_entropy(sim, labels, reduction="none")
 
 
 # https://github.com/RElbers/info-nce-pytorch/blob/main/info_nce/__init__.py
@@ -165,10 +168,19 @@ class Model(nn.Module):
         )
 
         user_loss = info_nce(user_view1[u_idx], user_view2[u_idx], self.tau)
+        max_user_loss = user_loss.max()
+        # print("?>??>>?>?>?>")
+        # print(user_loss)
+        # print(user_loss.shape)
+        # print(user_loss.sum())
+        # # print(F.softplus(neg_scores - pos_scores).shape)
+        # print("?>??>>?>?>?>")
 
         item_loss = info_nce(item_view1[i_idx], item_view2[i_idx], self.tau)
+        max_item_loss = item_loss.max()
+        
 
-        return user_loss + item_loss
+        return user_loss.mean() + item_loss.mean(), max_user_loss+max_item_loss
 
     def loss_fn(self, users, pos_items, neg_items):
         pos_scores = (users * pos_items).sum(1)

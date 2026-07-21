@@ -228,7 +228,7 @@ class TotalLoss:
         bpr_loss = self.bpr_loss.compute(preds)
 
         if self.a != 0:
-            glmf = GenderLoss(g_batch, u_batch, genres, recommender, top_k)
+            glmf = GenderLossRCR(g_batch, u_batch, genres, recommender, top_k)
             gender_loss = glmf.compute()
             gender_loss = torch.sigmoid(0.1 * (gender_loss - 0.5))
             loss = (

@@ -104,6 +104,7 @@ class RatioSplit(BaseMethod):
             test_size = ceil(test_size * data_size)
 
         val_test_size = val_size + test_size
+     
         if val_test_size >= data_size:
             raise ValueError(
                 f"val_size + test_size ({val_test_size}) should be smaller than data_size={data_size}"
