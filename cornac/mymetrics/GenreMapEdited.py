@@ -24,7 +24,7 @@ class GenreMapEdited(RatingMetric):
         returns the abs diff for each gender genre distribution
         """
         # precision of action = action movies / total action movies
-        print("yahooo")
+      
         df_reco = pd.DataFrame(
             {
                 "userID": np.repeat(np.arange(reco_matrix.shape[0]), self.top_k),
