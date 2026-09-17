@@ -2,10 +2,10 @@
 
 This repository contains the implementation accompanying the following papers:
 
-1. **Unmasking Gender Bias in Recommendation Systems and Enhancing Category-Aware Fairness**
+1. [**Unmasking Gender Bias in Recommendation Systems and Enhancing Category-Aware Fairness**](https://dl.acm.org/doi/10.1145/3696410.3714528)
 2. **The Taming of the Bias: Measuring and Mitigating Category-Aware Gender Bias in Recommendations**
 
-The implementation builds upon the excellent **Cornac** recommendation framework. The original recommendation models, evaluation pipeline, and several utilities are provided by the Cornac library. The category-aware fairness objectives, bias metrics, and related experimental components were implemented by **Tahsin Alamgir Kheya** on top of the Cornac framework.
+The implementation builds upon the excellent [**Cornac**](https://cornac.readthedocs.io/en/v3.0.1/) recommendation framework. The original recommendation models, evaluation pipeline, and several utilities are provided by the Cornac library. The category-aware fairness objectives, bias metrics, and related experimental components were implemented by **Tahsin Alamgir Kheya** on top of the Cornac framework.
 
 ## Acknowledgement
 
@@ -60,3 +60,6 @@ For questions regarding the category-aware fairness implementation or the accomp
 
 **Tahsin Alamgir Kheya**
 Email: [tahsinkheya@gmail.com](mailto:tahsinkheya@gmail.com)
+
+
+** The code underlying Papers 1 and 2 has been improved. This updated version achieves a greater reduction in bias with only minimal loss in performance.
