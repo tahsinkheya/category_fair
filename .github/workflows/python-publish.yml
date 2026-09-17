@@ -1,0 +1,126 @@
+# This workflow will upload a Python Package using Twine when a release is created
+# For more information see: https://help.github.com/en/actions/language-and-framework-guides/using-python-with-github-actions#publishing-to-package-registries
+
+# This workflow uses actions that are not certified by GitHub.
+# They are provided by a third-party and are governed by
+# separate terms of service, privacy policy, and support
+# documentation.
+
+name: upload
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build-wheels:
+    name: Building on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-13, macos-14]
+        versions:
+          - { python: "3.8", numpy: 1.22.4 }
+          - { python: "3.9", numpy: 1.22.4 }
+          - { python: "3.10", numpy: 1.22.4 }
+          - { python: "3.11", numpy: 1.24.3 }
+          - { python: "3.12", numpy: 1.26.4 }
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Python ${{ matrix.versions.python }}
+      if: ${{ (matrix.os != 'macos-14') || ((matrix.os == 'macos-14') && (matrix.versions.python != '3.8') && (matrix.versions.python != '3.9')) }}
+      uses: actions/setup-python@v5
+      id: pysetup
+      with:
+        python-version: ${{ matrix.versions.python }}
+        cache: 'pip'
+
+    - name: Setup Python 3.8-3.9 - macos-arm
+      if: ${{ (matrix.os == 'macos-14') && ((matrix.versions.python == '3.8') || (matrix.versions.python == '3.9')) }}
+      run: |
+        brew update
+        brew install python@${{ matrix.versions.python }}
+        curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+        python${{ matrix.versions.python }} get-pip.py
+
+    - name: Create Python alias for Windows 
+      if: matrix.os == 'windows-latest'
+      run: |
+        $newPath = "${{ steps.pysetup.outputs.python-path }}".Replace("python.exe", "python${{ matrix.versions.python }}.exe")
+        New-Item -ItemType HardLink -Path "$newPath" -Value "${{ steps.pysetup.outputs.python-path }}"
+
+    - name: Display Python and Pip versions
+      run: | 
+        python${{ matrix.versions.python }} -c "import sys; print(sys.version)"
+        pip --version
+
+    - name: Upgrade pip wheel setuptools
+      run: pip install wheel setuptools pip --upgrade
+
+    - name: Install numpy ${{ matrix.versions.numpy }}
+      run: pip install numpy==${{ matrix.versions.numpy }}
+    
+    - name: Display numpy version
+      run: python${{ matrix.versions.python }} -c "import numpy; print(numpy.__version__)"
+
+    - name: Install other dependencies
+      run: |
+        pip install scipy Cython wheel
+    
+    - name: Build wheels
+      run: python${{ matrix.versions.python }} setup.py bdist_wheel
+        
+    - name: Rename Linux wheels to supported platform of PyPI
+      if: matrix.os == 'ubuntu-latest'
+      run: for f in dist/*.whl; do mv "$f" "$(echo "$f" | sed s/linux/manylinux1/)"; done
+
+    - name: Publish wheels to GitHub artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: wheels
+        path: ./dist/*.whl
+
+
+  publish-pypi:
+    needs: [build-wheels]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+          
+    - uses: actions/download-artifact@v2
+      with:
+        name: wheels
+        path: dist/
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.10"
+
+    - name: Display Python version
+      run: python -c "import sys; print(sys.version)"
+
+    - name: Install numpy
+      run: |
+        python -m pip install numpy==1.22.4
+        python -c "import numpy; print(numpy.__version__)"
+
+    - name: Install other dependencies
+      run: |
+        python -m pip install scipy Cython wheel
+
+    - name: Build source tar file
+      run: python setup.py sdist
+        
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@master
+      with:
+        user: __token__
+        password: ${{ secrets.PYPI_API_TOKEN }}
+        packages_dir: ./dist/
+        verify_metadata: false
+        skip_existing: true
+        verbose: true

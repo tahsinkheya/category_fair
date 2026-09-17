@@ -1,0 +1,87 @@
+tests/vocab.pkl
+.idea/
+.vscode/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+
+# C extensions
+*.so
+cornac/models/*/*.cpp
+cornac/models/*/cython/*.cpp
+cornac/utils/*.cpp
+cornac/models/saved_models_tors
+
+# Distribution / packaging
+bin/
+build/
+develop-eggs/
+dist/
+eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+.tox/
+.coverage
+.cache
+nosetests.xml
+coverage.xml
+
+# Translations
+*.mo
+
+# Mr Developer
+.mr.developer.cfg
+.project
+.pydevproject
+
+# Rope
+.ropeproject
+
+# Django stuff:
+*.log
+*.pot
+
+# Sphinx documentation
+docs/_build/
+
+# Dataset stuff
+**.pickle
+**.lock
+**.zip
+
+# Environment
+env
+venv
+.env
+.venv
+results
+
+
+
+reco_matrix_all.npy
+reco_matrx_*.npy
+reco_matrix.npy
+reco_matrix_mapped_items.npy
+reco_matrix_mapped_scores.npy
+reco_items_scores_all.npy
+
+
+
+test_cornac.py
+test_cornac_neumf.py
+cornac-run2.sh
+cornac-run.sh*.npy
+*.npy
